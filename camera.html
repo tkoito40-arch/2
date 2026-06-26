@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+<title>電子黒板カメラ</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html, body { height: 100%; }
+body { font-family: 'Meiryo UI','Meiryo','Hiragino Sans',sans-serif; background: #0E1520; color: white; height: 100%; display: flex; flex-direction: column; }
+
+.header { background: #1565C0; padding: env(safe-area-inset-top, 0) 16px 0; padding-top: max(env(safe-area-inset-top), 12px); padding-bottom: 12px; display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.header h1 { font-size: 16px; font-weight: 600; flex: 1; }
+
+.screen { flex: 1; display: flex; flex-direction: column; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+
+/* SELECT */
+.select-body { padding: 20px; display: flex; flex-direction: column; gap: 16px; }
+.hint { font-size: 13px; color: #9AA8B8; line-height: 1.6; }
+.field label { display: block; font-size: 12px; font-weight: 600; color: #9AA8B8; margin-bottom: 6px; letter-spacing: .5px; }
+.field select { width: 100%; padding: 12px 14px; background: #1A2640; border: 1px solid #2E3D55; border-radius: 10px; color: white; font-size: 15px; font-family: inherit; -webkit-appearance: none; appearance: none; }
+.field select:disabled { opacity: .4; }
+.field select option { background: #1A2640; }
+.big-btn { width: 100%; padding: 15px; background: #1565C0; color: white; border: none; border-radius: 12px; font-size: 16px; font-weight: 600; font-family: inherit; cursor: pointer; }
+.big-btn:disabled { opacity: .35; }
+.big-btn.green { background: #2E7D32; }
+.big-btn.gray  { background: #1A2640; font-size: 14px; }
+.big-btn:active { opacity: .8; }
+
+/* BLACKBOARD PREVIEW */
+.bb-preview { background: #1A5C1A; border: 3px solid white; border-radius: 4px; overflow: hidden; }
+.bb-table { width: 100%; border-collapse: collapse; }
+.bb-table td { border: 1px solid white; color: white; font-size: 14px; padding: 7px 10px; }
+.bb-table .lbl { width: 72px; white-space: nowrap; }
+.bb-table .val { font-weight: 600; }
+.bb-empty { height: 52px; }
+
+/* CAPTURE */
+.capture-body { flex: 1; display: flex; flex-direction: column; padding: 16px; gap: 14px; overflow-y: auto; }
+.photo-preview { background: #1A2640; border-radius: 10px; overflow: hidden; }
+.photo-preview img { width: 100%; max-height: 260px; object-fit: contain; display: block; }
+
+/* TOAST */
+.toast { position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%); background: #2E7D32; color: white; padding: 12px 24px; border-radius: 24px; font-size: 14px; font-weight: 600; opacity: 0; transition: opacity .3s; pointer-events: none; white-space: nowrap; z-index: 999; }
+.toast.show { opacity: 1; }
+.hidden { display: none !important; }
+.loading { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: flex; align-items: center; justify-content: center; z-index: 998; font-size: 15px; }
+.spinner { width: 32px; height: 32px; border: 3px solid rgba(255,255,255,.25); border-top-color: white; border-radius: 50%; animation: spin .7s linear infinite; margin-right: 12px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>📷 電子黒板カメラ</h1>
+</div>
+
+<!-- STEP 1: 案件・工程選択 -->
+<div class="screen" id="screenSelect">
+  <div class="select-body">
+    <p class="hint">PCアプリで「📱 スマホ連携」→「案件データを送信」を押してから、案件と工程を選んでください。</p>
+    <div class="field">
+      <label>案件</label>
+      <select id="caseSelect" onchange="onCaseChange()">
+        <option value="">-- 読み込み中... --</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>工程</label>
+      <select id="procSelect" disabled onchange="onProcChange()">
+        <option value="">-- 案件を先に選択 --</option>
+      </select>
+    </div>
+    <button class="big-btn" id="goBtn" disabled onclick="showCapture()">次へ → 撮影画面へ</button>
+    <button class="big-btn gray" onclick="init()">🔄 データを再読み込み</button>
+  </div>
+</div>
+
+<!-- STEP 2: 撮影 -->
+<div class="screen hidden" id="screenCapture">
+  <div class="capture-body">
+    <div class="bb-preview">
+      <table class="bb-table" id="bbTable">
+        <tr><td class="lbl">工事名</td><td class="val" id="bb_name"></td></tr>
+        <tr><td class="lbl">工　種</td><td class="val" id="bb_proc"></td></tr>
+        <tr><td class="lbl">撮影日</td><td class="val" id="bb_date"></td></tr>
+        <tr><td colspan="2" class="bb-empty"></td></tr>
+      </table>
+    </div>
+
+    <input type="file" accept="image/*" capture="environment" id="fileInput" onchange="onFileSelect(event)" style="display:none;">
+    <button class="big-btn" onclick="document.getElementById('fileInput').click()">📷 撮影する</button>
+
+    <div class="photo-preview hidden" id="photoPreview">
+      <img id="previewImg" src="" alt="プレビュー">
+    </div>
+    <button class="big-btn green hidden" id="saveBtn" onclick="savePhoto()">✅ この写真を保存</button>
+    <button class="big-btn gray" onclick="showSelect()">← 工程を変更</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+let casesData = [], procsData = [], currentCase = null, currentProc = null, capturedDataUrl = null;
+
+async function init() {
+  document.getElementById('caseSelect').innerHTML = '<option value="">-- 読み込み中... --</option>';
+  document.getElementById('procSelect').innerHTML = '<option value="">-- 案件を先に選択 --</option>';
+  document.getElementById('procSelect').disabled = true;
+  document.getElementById('goBtn').disabled = true;
+  try {
+    const res = await fetch('/cases');
+    if (!res.ok) throw new Error('server error');
+    const data = await res.json();
+    casesData = data.cases || [];
+    procsData  = data.processes || [];
+    const sel = document.getElementById('caseSelect');
+    if (!casesData.length) {
+      sel.innerHTML = '<option value="">（PCアプリで「スマホ連携」→「案件データを送信」を押してください）</option>';
+      return;
+    }
+    sel.innerHTML = '<option value="">-- 案件を選択 --</option>' +
+      casesData.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+  } catch(e) {
+    document.getElementById('caseSelect').innerHTML = '<option value="">（サーバーに接続できません）</option>';
+  }
+}
+
+function onCaseChange() {
+  const id = document.getElementById('caseSelect').value;
+  currentCase = casesData.find(c => c.id === id) || null;
+  currentProc = null;
+  const psel = document.getElementById('procSelect');
+  psel.disabled = !id;
+  document.getElementById('goBtn').disabled = true;
+  if (!id) { psel.innerHTML = '<option value="">-- 案件を先に選択 --</option>'; return; }
+  const procs = procsData.filter(p => p.caseId === id);
+  procs.sort((a, b) => a.order - b.order);
+  psel.innerHTML = '<option value="">-- 工程を選択 --</option>' +
+    procs.map(p => `<option value="${p.id}" data-name="${p.name}">${p.name}</option>`).join('');
+}
+
+function onProcChange() {
+  const sel = document.getElementById('procSelect');
+  const opt = sel.options[sel.selectedIndex];
+  currentProc = sel.value ? { id: sel.value, name: opt.getAttribute('data-name') } : null;
+  document.getElementById('goBtn').disabled = !currentProc;
+}
+
+function showCapture() {
+  if (!currentCase || !currentProc) return;
+  const now = new Date();
+  const dateStr = `${now.getFullYear()}年${now.getMonth()+1}月${now.getDate()}日`;
+  document.getElementById('bb_name').textContent = currentCase.name;
+  document.getElementById('bb_proc').textContent = currentProc.name;
+  document.getElementById('bb_date').textContent = dateStr;
+  capturedDataUrl = null;
+  document.getElementById('previewImg').src = '';
+  document.getElementById('photoPreview').classList.add('hidden');
+  document.getElementById('saveBtn').classList.add('hidden');
+  document.getElementById('fileInput').value = '';
+  document.getElementById('screenSelect').classList.add('hidden');
+  document.getElementById('screenCapture').classList.remove('hidden');
+}
+
+function showSelect() {
+  capturedDataUrl = null;
+  document.getElementById('screenCapture').classList.add('hidden');
+  document.getElementById('screenSelect').classList.remove('hidden');
+}
+
+async function onFileSelect(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  showLoading();
+  try {
+    const raw     = await readFile(file);
+    const resized = await resizeImage(raw);
+    capturedDataUrl = await compositeBlackboard(resized);
+    document.getElementById('previewImg').src = capturedDataUrl;
+    document.getElementById('photoPreview').classList.remove('hidden');
+    document.getElementById('saveBtn').classList.remove('hidden');
+  } catch(err) {
+    alert('画像の処理に失敗しました: ' + err.message);
+  }
+  hideLoading();
+}
+
+const readFile = f => new Promise((ok, ng) => {
+  const r = new FileReader(); r.onload = e => ok(e.target.result); r.onerror = ng; r.readAsDataURL(f);
+});
+
+function resizeImage(dataUrl, max = 1920) {
+  return new Promise(ok => {
+    const img = new Image();
+    img.onload = () => {
+      let w = img.width, h = img.height;
+      if (w > max || h > max) {
+        if (w > h) { h = Math.round(h * max / w); w = max; }
+        else       { w = Math.round(w * max / h); h = max; }
+      }
+      const c = document.createElement('canvas');
+      c.width = w; c.height = h;
+      c.getContext('2d').drawImage(img, 0, 0, w, h);
+      ok(c.toDataURL('image/jpeg', 0.88));
+    };
+    img.src = dataUrl;
+  });
+}
+
+function compositeBlackboard(dataUrl) {
+  return new Promise(ok => {
+    const img = new Image();
+    img.onload = () => {
+      const w = img.width, h = img.height;
+      const c = document.createElement('canvas');
+      c.width = w; c.height = h;
+      const ctx = c.getContext('2d');
+      ctx.drawImage(img, 0, 0);
+      drawBB(ctx, w, h);
+      ok(c.toDataURL('image/jpeg', 0.88));
+    };
+    img.src = dataUrl;
+  });
+}
+
+function drawBB(ctx, cw, ch) {
+  const now    = new Date();
+  const dateStr = `${now.getFullYear()}年${now.getMonth()+1}月${now.getDate()}日`;
+  const rows   = [
+    { label: '工事名', value: currentCase.name },
+    { label: '工　種', value: currentProc.name },
+    { label: '撮影日', value: dateStr },
+  ];
+  const ROWS   = rows.length + 1; // +1 for empty row
+  const bw     = Math.round(cw * 0.52);
+  const rowH   = Math.round(ch * 0.058);
+  const bh     = rowH * ROWS;
+  const bx     = Math.round(cw * 0.015);
+  const by     = ch - bh - Math.round(ch * 0.015);
+  const lw     = Math.round(bw * 0.28); // label column width
+  const fsize  = Math.round(rowH * 0.5);
+  const lw2    = Math.max(2, Math.round(cw * 0.003));
+
+  // Background
+  ctx.fillStyle = '#1A5C1A';
+  ctx.fillRect(bx, by, bw, bh);
+
+  // Outer border
+  ctx.strokeStyle = 'white'; ctx.lineWidth = lw2 * 1.5;
+  ctx.strokeRect(bx, by, bw, bh);
+
+  // Rows
+  const font = `'Meiryo UI',Meiryo,sans-serif`;
+  rows.forEach((row, i) => {
+    const ry = by + rowH * i;
+    // Horizontal line
+    if (i > 0) {
+      ctx.strokeStyle = 'white'; ctx.lineWidth = lw2;
+      ctx.beginPath(); ctx.moveTo(bx, ry); ctx.lineTo(bx + bw, ry); ctx.stroke();
+    }
+    // Vertical divider
+    ctx.beginPath(); ctx.moveTo(bx + lw, ry); ctx.lineTo(bx + lw, ry + rowH); ctx.stroke();
+
+    // Label
+    ctx.fillStyle = 'white'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.font = `${fsize}px ${font}`;
+    ctx.fillText(row.label, bx + lw / 2, ry + rowH / 2);
+
+    // Value
+    ctx.font = `bold ${fsize}px ${font}`;
+    ctx.textAlign = 'left';
+    const maxW = bw - lw - fsize * 0.4;
+    let val = row.value;
+    while (ctx.measureText(val).width > maxW && val.length > 1) val = val.slice(0, -1);
+    if (val !== row.value) val += '…';
+    ctx.fillText(val, bx + lw + fsize * 0.3, ry + rowH / 2);
+  });
+
+  // Empty last row separator
+  const lastY = by + rowH * rows.length;
+  ctx.strokeStyle = 'white'; ctx.lineWidth = lw2;
+  ctx.beginPath(); ctx.moveTo(bx, lastY); ctx.lineTo(bx + bw, lastY); ctx.stroke();
+}
+
+function rr(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y); ctx.lineTo(x + w - r, y);
+  ctx.arcTo(x + w, y, x + w, y + r, r); ctx.lineTo(x + w, y + h - r);
+  ctx.arcTo(x + w, y + h, x + w - r, y + h, r); ctx.lineTo(x + r, y + h);
+  ctx.arcTo(x, y + h, x, y + h - r, r); ctx.lineTo(x, y + r);
+  ctx.arcTo(x, y, x + r, y, r); ctx.closePath();
+}
+
+async function savePhoto() {
+  if (!capturedDataUrl || !currentProc) return;
+  const btn = document.getElementById('saveBtn');
+  btn.disabled = true; btn.textContent = '送信中...';
+  try {
+    const photo = {
+      id: Date.now().toString(36) + Math.random().toString(36).slice(2),
+      caseId: currentCase.id,
+      processId: currentProc.id,
+      dataUrl: capturedDataUrl,
+      comment: '',
+      shotAt: Date.now(),
+      addedAt: Date.now()
+    };
+    const res = await fetch('/pending-photos', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(photo)
+    });
+    if (!res.ok) throw new Error('サーバーエラー ' + res.status);
+    showToast('✅「' + currentProc.name + '」に送信しました');
+    capturedDataUrl = null;
+    document.getElementById('fileInput').value = '';
+    document.getElementById('previewImg').src = '';
+    document.getElementById('photoPreview').classList.add('hidden');
+    document.getElementById('saveBtn').classList.add('hidden');
+  } catch(e) {
+    alert('保存に失敗しました:\n' + e.message);
+  }
+  btn.disabled = false; btn.textContent = '✅ この写真を保存';
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+let loadEl = null;
+function showLoading() {
+  if (loadEl) return;
+  loadEl = document.createElement('div'); loadEl.className = 'loading';
+  loadEl.innerHTML = '<div class="spinner"></div><span>処理中...</span>';
+  document.body.appendChild(loadEl);
+}
+function hideLoading() { if (loadEl) { loadEl.remove(); loadEl = null; } }
+
+init();
+</script>
+</body>
+</html>

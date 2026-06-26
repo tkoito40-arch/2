@@ -1,0 +1,1421 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>上下水道工事 写真管理システム</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1565C0">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="工事写真管理">
+<link rel="apple-touch-icon" href="icon.svg">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/exifr@7.1.3/dist/lite.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --blue: #1565C0; --blue-h: #0D47A1; --blue-l: #1976D2;
+  --teal: #00796B; --teal-h: #00695C;
+  --red: #C62828; --red-h: #B71C1C;
+  --bg: #EEF2F7; --white: #FFFFFF;
+  --sidebar: #1A2640; --sidebar-hover: rgba(255,255,255,.06); --sidebar-active: rgba(66,165,245,.18);
+  --border: #DDE3EA; --text: #1A2332; --text2: #5A6880; --text3: #9AA8B8;
+  --shadow: 0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.05);
+  --shadow-lg: 0 8px 20px rgba(0,0,0,.12);
+  --radius: 6px;
+}
+body { font-family: 'Meiryo UI','Meiryo','Yu Gothic UI','Yu Gothic',sans-serif; background: var(--bg); color: var(--text); height: 100vh; display: flex; flex-direction: column; overflow: hidden; font-size: 14px; }
+
+/* HEADER */
+.app-header { background: var(--blue); color: white; padding: 0 20px; height: 52px; display: flex; align-items: center; gap: 12px; box-shadow: 0 2px 6px rgba(0,0,0,.25); flex-shrink: 0; z-index: 20; }
+.header-icon { width: 32px; height: 32px; background: rgba(255,255,255,.15); border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.header-title { font-size: 16px; font-weight: 600; letter-spacing: .3px; }
+.header-sub { font-size: 11px; opacity: .7; margin-top: 1px; }
+
+/* LAYOUT */
+.app-body { display: flex; flex: 1; overflow: hidden; }
+
+/* SIDEBAR */
+.sidebar { width: 240px; background: var(--sidebar); color: #C0CADE; display: flex; flex-direction: column; overflow: hidden; flex-shrink: 0; }
+.sidebar-top { padding: 14px 12px 12px; border-bottom: 1px solid rgba(255,255,255,.07); }
+.sidebar-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1.2px; opacity: .4; margin-bottom: 10px; }
+.btn-new-case { display: flex; align-items: center; gap: 6px; width: 100%; padding: 8px 12px; background: var(--blue-l); color: white; border: none; border-radius: var(--radius); cursor: pointer; font-size: 13px; font-family: inherit; transition: background .15s; }
+.btn-new-case:hover { background: var(--blue); }
+.case-list { flex: 1; overflow-y: auto; padding: 4px 0; }
+.case-list::-webkit-scrollbar { width: 4px; }
+.case-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,.15); border-radius: 2px; }
+.case-item { padding: 9px 14px 9px 12px; cursor: pointer; border-left: 3px solid transparent; transition: all .15s; display: flex; align-items: center; gap: 8px; }
+.case-item:hover { background: var(--sidebar-hover); }
+.case-item.active { background: var(--sidebar-active); border-left-color: #42A5F5; }
+.case-item-icon { opacity: .4; flex-shrink: 0; }
+.case-item.active .case-item-icon { opacity: 1; }
+.case-item-name { font-size: 13px; font-weight: 500; line-height: 1.3; }
+.case-item-num { font-size: 11px; opacity: .4; margin-top: 1px; }
+
+/* MAIN */
+.main { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
+.empty-state { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; color: var(--text3); }
+.empty-icon { font-size: 56px; opacity: .35; }
+.empty-state h3 { font-size: 15px; color: var(--text2); }
+.empty-state p { font-size: 13px; }
+
+/* CASE HEADER */
+.case-header { padding: 12px 20px; background: var(--white); border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+.case-header-left { min-width: 0; }
+.case-name { font-size: 16px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.case-meta { font-size: 12px; color: var(--text2); margin-top: 3px; display: flex; flex-wrap: wrap; gap: 10px; }
+.case-meta span { display: flex; align-items: center; gap: 4px; }
+.case-actions { display: flex; gap: 8px; margin-left: 16px; flex-shrink: 0; }
+
+/* PROCESS TABS */
+.process-tab-bar { background: var(--white); border-bottom: 1px solid var(--border); display: flex; align-items: flex-end; padding: 0 20px; overflow-x: auto; flex-shrink: 0; }
+.process-tab-bar::-webkit-scrollbar { height: 0; }
+.proc-tab { padding: 10px 16px 9px; cursor: pointer; border-bottom: 2px solid transparent; color: var(--text2); white-space: nowrap; font-size: 13px; transition: all .15s; user-select: none; }
+.proc-tab:hover { color: var(--blue); background: rgba(21,101,192,.04); }
+.proc-tab.active { color: var(--blue); border-bottom-color: var(--blue); font-weight: 600; }
+.proc-tab-add { padding: 10px 14px 9px; cursor: pointer; color: var(--text3); font-size: 20px; line-height: 1; transition: color .15s; user-select: none; }
+.proc-tab-add:hover { color: var(--blue); }
+
+/* PHOTO AREA */
+.photo-area { flex: 1; overflow-y: auto; padding: 20px; }
+.photo-area::-webkit-scrollbar { width: 6px; }
+.photo-area::-webkit-scrollbar-thumb { background: #CBD5E0; border-radius: 3px; }
+.photo-toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+.photo-count { font-size: 13px; color: var(--text2); margin-left: auto; }
+
+/* DROP ZONE */
+.drop-zone { border: 2px dashed var(--border); border-radius: var(--radius); padding: 28px; text-align: center; color: var(--text2); cursor: pointer; transition: all .2s; background: white; }
+.drop-zone:hover, .drop-zone.dragover { border-color: var(--blue); color: var(--blue); background: rgba(21,101,192,.04); }
+.drop-zone-hint { font-size: 13px; margin-top: 6px; }
+.drop-zone-sub { font-size: 11px; margin-top: 4px; opacity: .55; }
+
+/* PHOTO GRID */
+.photo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(175px, 1fr)); gap: 14px; margin-top: 16px; }
+.photo-card { background: var(--white); border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow); cursor: pointer; transition: all .2s; position: relative; }
+.photo-card:hover { box-shadow: var(--shadow-lg); transform: translateY(-2px); }
+.photo-card img { width: 100%; height: 130px; object-fit: cover; display: block; }
+.photo-card-body { padding: 8px 10px 10px; }
+.photo-num { font-size: 10px; color: var(--text3); margin-bottom: 3px; }
+.photo-comment-preview { font-size: 12px; color: var(--text2); overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.4; }
+.photo-no-comment { font-size: 12px; color: var(--text3); font-style: italic; }
+.photo-date { display: none; }
+.photo-card-del { position: absolute; top: 5px; right: 5px; background: rgba(0,0,0,.55); color: white; border: none; border-radius: 50%; width: 22px; height: 22px; cursor: pointer; font-size: 13px; display: none; align-items: center; justify-content: center; }
+.photo-card:hover .photo-card-del { display: flex; }
+.photo-card-del:hover { background: var(--red); }
+.photo-card.dragging { opacity: .3; transform: scale(.96) !important; box-shadow: none !important; }
+.photo-card.drag-over { outline: 2px solid var(--blue); outline-offset: -2px; background: rgba(21,101,192,.04); }
+.photo-card .drag-handle { position: absolute; top: 5px; left: 5px; background: rgba(0,0,0,.45); color: white; border-radius: 4px; width: 22px; height: 22px; display: none; align-items: center; justify-content: center; font-size: 11px; cursor: grab; }
+.photo-card:hover .drag-handle { display: flex; }
+
+/* BUTTONS */
+.btn { padding: 6px 14px; border-radius: var(--radius); border: none; cursor: pointer; font-size: 13px; font-family: inherit; transition: all .15s; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.btn-primary { background: var(--blue); color: white; }
+.btn-primary:hover { background: var(--blue-h); }
+.btn-outline { background: white; color: var(--text); border: 1px solid var(--border); }
+.btn-outline:hover { background: var(--bg); }
+.btn-danger { background: var(--red); color: white; }
+.btn-danger:hover { background: var(--red-h); }
+.btn-teal { background: var(--teal); color: white; }
+.btn-teal:hover { background: var(--teal-h); }
+.btn-sm { padding: 4px 10px; font-size: 12px; }
+
+/* MODALS */
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: flex; align-items: center; justify-content: center; z-index: 200; padding: 20px; }
+.modal { background: white; border-radius: 8px; width: 100%; max-width: 520px; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,.3); }
+.modal-xl { max-width: 820px; }
+.modal-header { padding: 15px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; background: white; z-index: 1; }
+.modal-header h3 { font-size: 15px; font-weight: 600; }
+.modal-close { background: none; border: none; font-size: 22px; cursor: pointer; color: var(--text3); line-height: 1; padding: 2px 6px; border-radius: 4px; }
+.modal-close:hover { background: var(--bg); color: var(--text); }
+.modal-body { padding: 20px; }
+.modal-footer { padding: 12px 20px; border-top: 1px solid var(--border); display: flex; align-items: center; gap: 8px; }
+.modal-footer-end { margin-left: auto; display: flex; gap: 8px; }
+
+/* FORM */
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.form-group { margin-bottom: 14px; }
+.form-group:last-child { margin-bottom: 0; }
+.form-group label { display: block; font-size: 12px; font-weight: 600; margin-bottom: 5px; color: var(--text2); }
+.form-group input, .form-group textarea, .form-group select { width: 100%; padding: 7px 10px; border: 1px solid var(--border); border-radius: var(--radius); font-size: 13px; font-family: inherit; color: var(--text); transition: border-color .15s; }
+.form-group input:focus, .form-group textarea:focus { outline: none; border-color: var(--blue); box-shadow: 0 0 0 3px rgba(21,101,192,.08); }
+.form-group textarea { resize: vertical; min-height: 68px; }
+
+/* PHOTO MODAL */
+.photo-modal-wrap { background: #0E1520; border-radius: var(--radius); overflow: hidden; text-align: center; min-height: 200px; display: flex; align-items: center; justify-content: center; }
+.photo-modal-img { max-width: 100%; max-height: 380px; object-fit: contain; display: block; margin: 0 auto; }
+.photo-modal-nav { display: flex; align-items: center; justify-content: center; gap: 16px; margin-top: 10px; }
+.photo-modal-num { font-size: 13px; color: var(--text2); min-width: 80px; text-align: center; }
+
+/* PROCESS MANAGE */
+.proc-list { display: flex; flex-direction: column; gap: 6px; }
+.proc-list-item { display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: var(--bg); border-radius: var(--radius); border: 1px solid var(--border); }
+.proc-list-item .proc-name { flex: 1; font-size: 13px; }
+.proc-list-item .proc-cnt { font-size: 11px; color: var(--text3); }
+.proc-del-btn { background: none; border: none; cursor: pointer; color: var(--text3); font-size: 16px; padding: 2px 4px; border-radius: 3px; }
+.proc-del-btn:hover { color: var(--red); background: rgba(198,40,40,.08); }
+.preset-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; }
+
+/* LOADING */
+.loading-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.5); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 999; color: white; gap: 14px; }
+.loading-overlay p { font-size: 14px; opacity: .9; }
+.spinner { width: 36px; height: 36px; border: 3px solid rgba(255,255,255,.25); border-top-color: white; border-radius: 50%; animation: spin .7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* PDF PREVIEW (off-screen capture target) */
+#pdf-container { position: fixed; left: -9999px; top: 0; width: 794px; background: white; z-index: -999; }
+.pdf-page { width: 794px; min-height: 1122px; padding: 44px 54px; background: white; font-family: 'Meiryo UI','Meiryo','Yu Gothic UI','Yu Gothic',sans-serif; }
+.pdf-cover { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 1034px; }
+.pdf-cover-badge { background: #1565C0; color: white; font-size: 24px; font-weight: bold; padding: 10px 32px; border-radius: 4px; margin-bottom: 32px; letter-spacing: 2px; }
+.pdf-cover-name { font-size: 20px; font-weight: bold; margin-bottom: 8px; text-align: center; }
+.pdf-cover-proc { font-size: 15px; color: #555; margin-bottom: 4px; }
+.pdf-cover-sep { width: 180px; border: 1px solid #ccc; margin: 24px auto; }
+.pdf-cover-meta { font-size: 13px; color: #666; line-height: 1.9; text-align: center; }
+.pdf-page-header { border-bottom: 2px solid #1565C0; padding-bottom: 8px; margin-bottom: 14px; display: flex; align-items: baseline; justify-content: space-between; }
+.pdf-page-title { font-size: 16px; font-weight: bold; color: #1565C0; }
+.pdf-page-proc { font-size: 12px; color: #555; margin-top: 2px; }
+.pdf-page-num { font-size: 11px; color: #888; }
+.pdf-photos { display: flex; gap: 20px; }
+.pdf-photo-col { flex: 1; }
+.pdf-photo-col img { width: 100%; height: 240px; object-fit: cover; border: 1px solid #ddd; display: block; }
+.pdf-photo-label { font-size: 11px; color: #888; margin: 6px 0 3px; }
+.pdf-photo-comment { font-size: 13px; color: #333; border-top: 1px solid #e8e8e8; padding-top: 6px; line-height: 1.55; min-height: 44px; }
+.pdf-empty-col { flex: 1; }
+
+.hidden { display: none !important; }
+
+/* PWA install button */
+.btn-install { background: rgba(255,255,255,.15); color: white; border: 1px solid rgba(255,255,255,.3); margin-left: auto; font-size: 12px; padding: 5px 12px; }
+.btn-install:hover { background: rgba(255,255,255,.25); }
+/* Settings button */
+.btn-settings { background: rgba(255,255,255,.12); color: white; border: 1px solid rgba(255,255,255,.2); border-radius: var(--radius); padding: 5px 10px; font-size: 16px; cursor: pointer; line-height: 1; margin-left: auto; }
+.btn-settings:hover { background: rgba(255,255,255,.22); }
+/* AI button */
+.btn-ai { background: #6A1B9A; color: white; }
+.btn-ai:hover { background: #4A148C; }
+/* AI result badge on photo card */
+.photo-proc-badge { font-size: 10px; background: #EDE7F6; color: #6A1B9A; border-radius: 3px; padding: 1px 5px; margin-top: 3px; display: inline-block; }
+/* AI Confirm Modal */
+.ai-result-row { display: flex; align-items: center; gap: 12px; padding: 10px 20px; border-bottom: 1px solid var(--border); }
+.ai-result-row:last-child { border-bottom: none; }
+.ai-row-changed { background: #F3E5F5; }
+.ai-thumb { width: 80px; height: 56px; object-fit: cover; border-radius: 4px; flex-shrink: 0; border: 1px solid var(--border); }
+.ai-result-info { flex: 1; min-width: 0; }
+.ai-from-proc { font-size: 12px; color: var(--text2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ai-raw-text { font-size: 11px; color: var(--text3); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-style: italic; }
+.ai-arrow { color: var(--text3); font-size: 18px; flex-shrink: 0; }
+.ai-result-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.ai-proc-select { font-size: 12px; padding: 4px 6px; border: 1px solid var(--border); border-radius: var(--radius); font-family: inherit; max-width: 200px; }
+.ai-conf-badge { font-size: 10px; padding: 2px 7px; border-radius: 10px; font-weight: 600; flex-shrink: 0; }
+.conf-high { background: #E8F5E9; color: #2E7D32; }
+.conf-mid { background: #FFF8E1; color: #F57F17; }
+.conf-low { background: #FFEBEE; color: #C62828; }
+</style>
+</head>
+<body>
+
+<header class="app-header">
+  <div class="header-icon">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+      <path d="M4 18V10.5C4 7.46 6.19 5 9 5h6c2.81 0 5 2.46 5 5.5V18" stroke="white" stroke-width="1.8" stroke-linecap="round"/>
+      <path d="M2 18h20M9 5V3M15 5V3" stroke="white" stroke-width="1.8" stroke-linecap="round"/>
+      <circle cx="12" cy="13" r="2.5" fill="white"/>
+    </svg>
+  </div>
+  <div>
+    <div class="header-title">上下水道工事 写真管理システム</div>
+    <div class="header-sub">工事写真の整理・帳票PDF出力</div>
+  </div>
+  <button class="btn-settings" onclick="openPhoneSyncModal()" title="スマホ連携" style="margin-left:auto;">📱</button>
+  <button class="btn-settings" onclick="openSettingsModal()" title="設定" style="margin-left:0;">⚙️</button>
+  <button class="btn btn-install hidden" id="installBtn" onclick="installApp()">
+    📲 アプリをインストール
+  </button>
+</header>
+
+<div class="app-body">
+  <aside class="sidebar">
+    <div class="sidebar-top">
+      <div class="sidebar-label">案件一覧</div>
+      <button class="btn-new-case" onclick="openCaseModal()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+        新規案件を作成
+      </button>
+    </div>
+    <div class="case-list" id="caseList"></div>
+  </aside>
+
+  <main class="main" id="mainContent">
+    <div class="empty-state">
+      <div class="empty-icon">📋</div>
+      <h3>案件を選択してください</h3>
+      <p>左のメニューから案件を選ぶか、新規作成してください</p>
+    </div>
+  </main>
+</div>
+
+<!-- === MODALS === -->
+
+<!-- Case Modal -->
+<div class="modal-overlay hidden" id="caseModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="caseModalTitle">新規案件を作成</h3>
+      <button class="modal-close" onclick="closeCaseModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="caseEditId">
+      <div class="form-row">
+        <div class="form-group">
+          <label>案件番号</label>
+          <input type="text" id="f_number" placeholder="例: R6-001">
+        </div>
+        <div class="form-group">
+          <label>発注者</label>
+          <input type="text" id="f_client" placeholder="例: ○○市上下水道局">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>工事名称 <span style="color:#e53935;">*</span></label>
+        <input type="text" id="f_name" placeholder="例: ○○町地内 配水管布設工事" onkeydown="if(event.key==='Enter')saveCase()">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>工事場所</label>
+          <input type="text" id="f_location" placeholder="例: ○○市○○町1丁目">
+        </div>
+        <div class="form-group">
+          <label>工期</label>
+          <input type="text" id="f_period" placeholder="例: R6.4.1〜R6.7.31">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>施工業者</label>
+        <input type="text" id="f_contractor" placeholder="例: 株式会社○○建設">
+      </div>
+      <div class="form-group">
+        <label>備考・メモ</label>
+        <textarea id="f_note" placeholder="備考があれば入力"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeCaseModal()">キャンセル</button>
+      <div class="modal-footer-end">
+        <button class="btn btn-primary" onclick="saveCase()">保存する</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Process Modal -->
+<div class="modal-overlay hidden" id="processModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>工程を管理</h3>
+      <button class="modal-close" onclick="closeProcessModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>工程名を追加</label>
+        <div style="display:flex;gap:8px;">
+          <input type="text" id="newProcName" placeholder="工程名を入力" style="flex:1;" onkeydown="if(event.key==='Enter')addProcess()">
+          <button class="btn btn-primary" onclick="addProcess()">追加</button>
+        </div>
+      </div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:8px;font-weight:600;">標準工程テンプレート</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+        <button class="btn btn-primary" style="font-size:12px;padding:6px 14px;" onclick="addAllPresets(PRESETS_TOKYO)">💧 給水管引込（東京都・23工程）</button>
+        <button class="btn btn-primary" style="font-size:12px;padding:6px 14px;background:var(--blue-h);" onclick="addAllPresets(PRESETS_KANAGAWA)">💧 給水管引込（神奈川県・20工程）</button>
+        <button class="btn btn-teal" style="font-size:12px;padding:6px 14px;" onclick="addAllPresets(PRESETS_GESUI)">🚰 下水道工事（16工程）</button>
+        <button class="btn btn-outline" style="font-size:12px;padding:6px 14px;" onclick="addAllPresets(PRESETS_MASU)">🪣 桝交換（7工程）</button>
+      </div>
+      <div class="preset-chips" id="presetChips"></div>
+      <div class="form-group">
+        <label>現在の工程一覧</label>
+        <div class="proc-list" id="procManageList"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <div class="modal-footer-end">
+        <button class="btn btn-outline" onclick="closeProcessModal()">閉じる</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Phone Sync Modal -->
+<div class="modal-overlay hidden" id="phoneSyncModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>📱 スマホ連携</h3>
+      <button class="modal-close" onclick="closePhoneSyncModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <div style="margin-bottom:16px;">
+        <div style="font-size:12px;color:var(--text2);margin-bottom:10px;font-weight:600;">スマホのカメラでQRコードを読み取ってください</div>
+        <div id="qrWrap" style="text-align:center;background:white;padding:14px;border-radius:8px;border:1px solid var(--border);margin-bottom:10px;min-height:60px;display:flex;align-items:center;justify-content:center;"></div>
+        <div id="cameraUrl" style="font-size:13px;background:var(--bg);padding:8px 12px;border-radius:6px;border:1px solid var(--border);font-family:monospace;word-break:break-all;color:var(--blue);text-align:center;cursor:pointer;" onclick="copyUrl()" title="クリックでコピー">取得中...</div>
+        <div style="font-size:11px;color:var(--text3);text-align:center;margin-top:4px;">↑ クリックでURLをコピー</div>
+      </div>
+      <div style="font-size:12px;color:var(--text2);background:var(--bg);padding:12px 14px;border-radius:6px;line-height:1.9;border:1px solid var(--border);">
+        <strong style="color:var(--text);">使い方</strong><br>
+        1. 「案件データを送信」を押す<br>
+        2. スマホで上のURLを開く<br>
+        3. 案件・工程を選んで撮影<br>
+        4. 撮影後に「スマホから読み込む」を押す
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-teal" onclick="importFromPhone()">📥 スマホから読み込む</button>
+      <div class="modal-footer-end">
+        <button class="btn btn-primary" onclick="exportToPhone()">📤 案件データを送信</button>
+        <button class="btn btn-outline" onclick="closePhoneSyncModal()">閉じる</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Settings Modal -->
+<div class="modal-overlay hidden" id="settingsModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>⚙️ 設定</h3>
+      <button class="modal-close" onclick="closeSettingsModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>Gemini API キー（AI自動振り分け用）</label>
+        <input type="password" id="apiKeyInput" placeholder="AIzaSy..." style="width:100%;font-family:monospace;">
+        <div style="font-size:12px;color:var(--text2);margin-top:6px;line-height:1.6;">
+          Google AI Studio（<span style="color:var(--blue);">aistudio.google.com/app/apikey</span>）で取得できます。無料枠で十分使えます。<br>
+          ※ キーはこの端末にのみ保存され、外部に送信されません。
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <div style="font-size:12px;color:var(--text3);" id="apiKeyStatus"></div>
+      <div class="modal-footer-end">
+        <button class="btn btn-outline" onclick="closeSettingsModal()">キャンセル</button>
+        <button class="btn btn-primary" onclick="saveSettings()">保存</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- AI Confirm Modal -->
+<div class="modal-overlay hidden" id="aiConfirmModal">
+  <div class="modal" style="max-width:700px;">
+    <div class="modal-header">
+      <h3>🤖 AI自動振り分け — 結果を確認</h3>
+      <button class="modal-close" onclick="closeAiConfirmModal()">×</button>
+    </div>
+    <div class="modal-body" style="padding:0;">
+      <div style="padding:10px 20px;background:var(--bg);border-bottom:1px solid var(--border);font-size:12px;color:var(--text2);">
+        AIの判定結果を確認してください。間違いがあればドロップダウンで修正できます。紫の行が移動対象です。
+      </div>
+      <div id="aiResultList" style="max-height:55vh;overflow-y:auto;"></div>
+    </div>
+    <div class="modal-footer">
+      <div style="font-size:12px;color:var(--text2);" id="aiResultSummary"></div>
+      <div class="modal-footer-end">
+        <button class="btn btn-outline" onclick="closeAiConfirmModal()">キャンセル</button>
+        <button class="btn btn-ai" onclick="applyAiAssignments()">✅ この内容で確定</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Photo Modal -->
+<div class="modal-overlay hidden" id="photoModal">
+  <div class="modal modal-xl">
+    <div class="modal-header">
+      <h3 id="photoModalTitle">写真詳細</h3>
+      <button class="modal-close" onclick="closePhotoModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="photo-modal-wrap">
+        <img id="photoModalImg" src="" alt="" class="photo-modal-img">
+      </div>
+      <div class="photo-modal-nav">
+        <button class="btn btn-outline btn-sm" onclick="photoNav(-1)">◀ 前へ</button>
+        <span class="photo-modal-num" id="photoModalNum"></span>
+        <button class="btn btn-outline btn-sm" onclick="photoNav(1)">次へ ▶</button>
+      </div>
+      <div class="form-group" style="margin-top:16px;">
+        <label>コメント・メモ</label>
+        <textarea id="photoComment" rows="3" placeholder="撮影状況や確認事項などを入力..."></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-danger btn-sm" onclick="deleteCurrentPhoto()">この写真を削除</button>
+      <div class="modal-footer-end">
+        <button class="btn btn-outline" onclick="closePhotoModal()">キャンセル</button>
+        <button class="btn btn-primary" onclick="savePhotoComment()">コメントを保存</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Loading -->
+<div class="loading-overlay hidden" id="loading">
+  <div class="spinner"></div>
+  <p id="loadingText">処理中...</p>
+</div>
+
+<!-- Hidden PDF container -->
+<div id="pdf-container"></div>
+
+<!-- Hidden file input -->
+<input type="file" id="fileInput" multiple accept="image/*" style="display:none" onchange="handleFileSelect(event)">
+
+<script>
+'use strict';
+
+// ── IndexedDB ──────────────────────────────────────────────
+const DB_NAME = 'suidoPhotoDB', DB_VER = 1;
+let db;
+
+function openDB() {
+  return new Promise((ok, ng) => {
+    const req = indexedDB.open(DB_NAME, DB_VER);
+    req.onupgradeneeded = e => {
+      const d = e.target.result;
+      if (!d.objectStoreNames.contains('cases'))
+        d.createObjectStore('cases', { keyPath: 'id' });
+      if (!d.objectStoreNames.contains('processes')) {
+        const s = d.createObjectStore('processes', { keyPath: 'id' });
+        s.createIndex('caseId', 'caseId');
+      }
+      if (!d.objectStoreNames.contains('photos')) {
+        const s = d.createObjectStore('photos', { keyPath: 'id' });
+        s.createIndex('processId', 'processId');
+      }
+    };
+    req.onsuccess = e => { db = e.target.result; ok(); };
+    req.onerror = ng;
+  });
+}
+
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+
+const dbAll  = s       => new Promise((ok,ng) => { const r = db.transaction(s).objectStore(s).getAll(); r.onsuccess=()=>ok(r.result); r.onerror=ng; });
+const dbIdx  = (s,i,v) => new Promise((ok,ng) => { const r = db.transaction(s).objectStore(s).index(i).getAll(v); r.onsuccess=()=>ok(r.result); r.onerror=ng; });
+const dbPut  = (s,item)=> new Promise((ok,ng) => { const r = db.transaction(s,'readwrite').objectStore(s).put(item); r.onsuccess=()=>ok(r.result); r.onerror=ng; });
+const dbDel  = (s,id)  => new Promise((ok,ng) => { const r = db.transaction(s,'readwrite').objectStore(s).delete(id); r.onsuccess=()=>ok(); r.onerror=ng; });
+
+// ── State ──────────────────────────────────────────────────
+let cases = [], currentCaseId = null, currentCase = null;
+let processes = [], currentProcId = null;
+let photos = [], currentPhotoIdx = 0;
+let dragSrcIdx = -1, isDragging = false;
+
+const PRESETS_TOKYO   = ['着工前','カッター工','使用材料','密着コア使用','穿孔刃','分岐部耐圧テスト(0.75MPa)','分岐部耐圧テスト（接写）','穿孔状況','コア挿入前','コア挿入','コア挿入後','サヤ菅設置','サヤ菅設置（モルタル充填）','宅内耐圧テスト','宅内耐圧テスト（接写）','宅内配管状況','床付け','分岐部配管状況','SUS配管状況','埋戻し工','仮復旧','設置完了','明示杭・メーターチャッキ・メーターボックス・散水栓'];
+const PRESETS_KANAGAWA = ['着工前','カッター工','使用材料','密着コア使用','分岐部耐圧テスト（1.75MPa）','分岐部耐圧テスト（接写）','穿孔状況','コア挿入前','コア挿入','コア挿入後','サヤ菅設置','サヤ菅設置（モルタル充填）','宅内耐圧テスト','宅内耐圧テスト（接写）','宅内配管状況','床付け','分岐部配管状況','SUS配管状況','埋戻し工','仮復旧'];
+const PRESETS_GESUI = ['着工前','カッター工','使用材料','削孔状況','削孔穴','支管取付（接合材塗布）','支管取付','桝設置　床付け','桝設置　基礎','桝設置','床付け','分岐部配管状況','取付管φ150配管状況','サヤ菅設置（モルタル）充填','埋戻し工','仮復旧工'];
+const PRESETS_MASU = ['着工前','既設桝撤去材','桝設置　床付け','桝設置　基礎','桝設置','桝設置　高さ（H）','設置完了'];
+
+// ── Bootstrap ──────────────────────────────────────────────
+async function init() {
+  await openDB();
+  cases = await dbAll('cases');
+  cases.sort((a,b) => b.createdAt - a.createdAt);
+  renderSidebar();
+}
+
+// ── Sidebar ────────────────────────────────────────────────
+function renderSidebar() {
+  const el = document.getElementById('caseList');
+  if (!cases.length) {
+    el.innerHTML = '<div style="padding:20px 14px;font-size:12px;color:#5A6880;opacity:.6;text-align:center;">案件がありません</div>';
+    return;
+  }
+  el.innerHTML = cases.map(c => `
+    <div class="case-item${c.id===currentCaseId?' active':''}" onclick="selectCase('${c.id}')">
+      <svg class="case-item-icon" width="13" height="13" viewBox="0 0 24 24" fill="#42A5F5">
+        <path d="M20 6h-2.18c.07-.44.18-.86.18-1a3 3 0 0 0-6 0c0 .14.11.56.18 1H10c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-7-1c0-.55.45-1 1-1s1 .45 1 1-.45 1-1 1-1-.45-1-1z"/>
+      </svg>
+      <div class="case-item-text">
+        <div class="case-item-name">${h(c.name)}</div>
+        <div class="case-item-num">${h(c.number||'')} ${h(c.location||'')}</div>
+      </div>
+    </div>`).join('');
+}
+
+// ── Case Select ────────────────────────────────────────────
+async function selectCase(id) {
+  currentCaseId = id;
+  currentCase = cases.find(c => c.id === id);
+  processes = await dbIdx('processes','caseId',id);
+  processes.sort((a,b) => a.order - b.order);
+  if (!currentProcId || !processes.find(p=>p.id===currentProcId))
+    currentProcId = processes[0]?.id ?? null;
+  renderSidebar();
+  await renderMain();
+}
+
+// ── Main Render ────────────────────────────────────────────
+async function renderMain() {
+  if (!currentCase) return;
+  photos = currentProcId ? await dbIdx('photos','processId',currentProcId) : [];
+  photos.sort(photoSort);
+
+  const metaParts = [
+    currentCase.number    && `<span>📋 ${h(currentCase.number)}</span>`,
+    currentCase.client    && `<span>🏛 ${h(currentCase.client)}</span>`,
+    currentCase.location  && `<span>📍 ${h(currentCase.location)}</span>`,
+    currentCase.period    && `<span>📅 ${h(currentCase.period)}</span>`,
+    currentCase.contractor && `<span>🔧 ${h(currentCase.contractor)}</span>`,
+  ].filter(Boolean).join('');
+
+  document.getElementById('mainContent').innerHTML = `
+    <div class="case-header">
+      <div class="case-header-left">
+        <div class="case-name">${h(currentCase.name)}</div>
+        ${metaParts ? `<div class="case-meta">${metaParts}</div>` : ''}
+      </div>
+      <div class="case-actions">
+        <button class="btn btn-ai btn-sm" onclick="aiAssignPhotos()" title="全写真の黒板をAIが読み取って工程へ自動振り分け">🤖 AI自動振り分け</button>
+        <button class="btn btn-outline btn-sm" onclick="openCaseModal('${currentCase.id}')">編集</button>
+        <button class="btn btn-outline btn-sm" style="color:var(--red);border-color:var(--red);" onclick="confirmDeleteCase('${currentCase.id}')">削除</button>
+      </div>
+    </div>
+
+    <div class="process-tab-bar" id="tabBar">
+      ${processes.map(p=>`
+        <div class="proc-tab${p.id===currentProcId?' active':''}" onclick="selectProc('${p.id}')">
+          ${h(p.name)}
+        </div>`).join('')}
+      <div class="proc-tab-add" onclick="openProcessModal()" title="工程を追加・管理">＋</div>
+    </div>
+
+    <div class="photo-area" id="photoArea">${buildPhotoArea()}</div>
+  `;
+  setupDrop();
+  setupCardDrag();
+}
+
+function buildPhotoArea() {
+  if (!currentProcId) return `
+    <div class="empty-state" style="padding-top:60px;">
+      <div class="empty-icon">➕</div>
+      <h3>工程を追加してください</h3>
+      <p>上の「＋」ボタンから工程（着工前・掘削など）を作成してください</p>
+      <button class="btn btn-primary" style="margin-top:12px;" onclick="openProcessModal()">工程を追加</button>
+    </div>`;
+
+  const grid = photos.length ? `
+    <div class="photo-grid" id="photoGrid">
+      ${photos.map((p,i) => `
+        <div class="photo-card" data-idx="${i}" onclick="photoCardClick(${i})">
+          <div class="drag-handle" title="ドラッグして並び替え">⠿</div>
+          <button class="photo-card-del" onclick="event.stopPropagation();quickDelete('${p.id}')">×</button>
+          <img src="${p.dataUrl}" alt="写真${i+1}" loading="lazy">
+          <div class="photo-card-body">
+            <div class="photo-num">No.${i+1}</div>
+            ${p.comment
+              ? `<div class="photo-comment-preview">${h(p.comment)}</div>`
+              : `<div class="photo-no-comment">コメントなし</div>`}
+            ${p.shotAt ? `<div class="photo-date">📷 ${fmtDate(p.shotAt)}</div>` : ''}
+          </div>
+        </div>`).join('')}
+    </div>` : '';
+
+  return `
+    <div class="photo-toolbar">
+      <button class="btn btn-primary" onclick="document.getElementById('fileInput').click()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16h6v-6h4l-7-7-7 7h4zm-4 2h14v2H5z"/></svg>
+        写真を追加
+      </button>
+      ${photos.length ? `
+      <button class="btn btn-teal" onclick="generatePDF()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>
+        帳票PDF出力
+      </button>
+      <span class="photo-count">${photos.length}枚</span>` : ''}
+    </div>
+
+    <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+      <svg width="38" height="38" viewBox="0 0 24 24" fill="currentColor" style="opacity:.25;display:block;margin:0 auto;">
+        <path d="M19 7v2.99s-1.99.01-2 0V7h-3s.01-1.99 0-2h3V2h2v3h3v2h-3zm-3 4V8h-3V5H5c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2v-8h-3zM5 19l3-4 2 3 3-4 4 5H5z"/>
+      </svg>
+      <div class="drop-zone-hint">クリックまたは写真をドラッグ＆ドロップ</div>
+      <div class="drop-zone-sub">JPEG / PNG / HEIC 対応 — 複数枚一括追加可</div>
+    </div>
+    ${grid}`;
+}
+
+// ── Drag & Drop ────────────────────────────────────────────
+function setupDrop() {
+  const z = document.getElementById('dropZone');
+  if (!z) return;
+  z.addEventListener('dragover', e => {
+    if (dragSrcIdx >= 0) return; // カードドラッグ中は無視
+    e.preventDefault(); z.classList.add('dragover');
+  });
+  z.addEventListener('dragleave', () => z.classList.remove('dragover'));
+  z.addEventListener('drop', e => {
+    e.preventDefault(); z.classList.remove('dragover');
+    if (dragSrcIdx >= 0) return; // カードドラッグ中は無視
+    const files = [...e.dataTransfer.files].filter(f => f.type.startsWith('image/'));
+    if (files.length) handleFiles(files);
+  });
+}
+
+function photoCardClick(idx) {
+  if (isDragging) return;
+  openPhotoModal(idx);
+}
+
+function setupCardDrag() {
+  const grid = document.getElementById('photoGrid');
+  if (!grid) return;
+  const cards = [...grid.querySelectorAll('.photo-card')];
+
+  cards.forEach((card, idx) => {
+    card.setAttribute('draggable', 'true');
+
+    card.addEventListener('dragstart', e => {
+      dragSrcIdx = idx;
+      isDragging = true;
+      card.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+    });
+
+    card.addEventListener('dragend', () => {
+      dragSrcIdx = -1;
+      card.classList.remove('dragging');
+      cards.forEach(c => c.classList.remove('drag-over'));
+      setTimeout(() => { isDragging = false; }, 80);
+    });
+
+    card.addEventListener('dragover', e => {
+      e.preventDefault(); e.stopPropagation();
+      e.dataTransfer.dropEffect = 'move';
+      cards.forEach(c => c.classList.remove('drag-over'));
+      if (idx !== dragSrcIdx) card.classList.add('drag-over');
+    });
+
+    card.addEventListener('dragleave', () => card.classList.remove('drag-over'));
+
+    card.addEventListener('drop', async e => {
+      e.preventDefault(); e.stopPropagation();
+      card.classList.remove('drag-over');
+      const src = dragSrcIdx;
+      if (src < 0 || src === idx) return;
+
+      // 配列を並び替え
+      const moved = photos.splice(src, 1)[0];
+      photos.splice(idx, 0, moved);
+
+      // 新しい順番を addedAt に反映して保存
+      const base = Date.now();
+      for (let i = 0; i < photos.length; i++) {
+        photos[i].addedAt = base + i;
+        await dbPut('photos', photos[i]);
+      }
+
+      document.getElementById('photoArea').innerHTML = buildPhotoArea();
+      setupDrop();
+      setupCardDrag();
+    });
+  });
+}
+
+function handleFileSelect(e) {
+  const files = [...e.target.files];
+  e.target.value = '';
+  if (files.length) handleFiles(files);
+}
+
+async function handleFiles(files) {
+  showLoad(`写真を読み込み中... 0/${files.length}`);
+  for (let i = 0; i < files.length; i++) {
+    setLoadText(`写真を読み込み中... ${i+1}/${files.length}`);
+    const raw = await readFile(files[i]);
+    const dataUrl = await resizeImage(raw);
+
+    // EXIF 撮影日時を読み取る
+    let shotAt = null;
+    try {
+      if (window.exifr) {
+        const exif = await exifr.parse(files[i], ['DateTimeOriginal', 'DateTime', 'CreateDate']);
+        const dt = exif?.DateTimeOriginal || exif?.CreateDate || exif?.DateTime;
+        if (dt instanceof Date && !isNaN(dt)) shotAt = dt.getTime();
+      }
+    } catch (_) {}
+
+    await dbPut('photos', {
+      id: uid(), processId: currentProcId,
+      dataUrl, comment: '',
+      shotAt,
+      addedAt: Date.now() + i
+    });
+  }
+  hideLoad();
+  photos = await dbIdx('photos','processId',currentProcId);
+  photos.sort(photoSort);
+  document.getElementById('photoArea').innerHTML = buildPhotoArea();
+  setupDrop();
+  setupCardDrag();
+}
+
+const readFile = f => new Promise((ok,ng) => {
+  const r = new FileReader();
+  r.onload = e => ok(e.target.result);
+  r.onerror = ng;
+  r.readAsDataURL(f);
+});
+
+function resizeImage(dataUrl, max=1920) {
+  return new Promise(ok => {
+    const img = new Image();
+    img.onload = () => {
+      let w = img.width, wh = img.height;
+      if (w > max || wh > max) {
+        if (w > wh) { wh = Math.round(wh * max / w); w = max; }
+        else { w = Math.round(w * max / wh); wh = max; }
+      }
+      const c = document.createElement('canvas');
+      c.width = w; c.height = wh;
+      c.getContext('2d').drawImage(img, 0, 0, w, wh);
+      ok(c.toDataURL('image/jpeg', 0.88));
+    };
+    img.src = dataUrl;
+  });
+}
+
+// ── Photo Modal ────────────────────────────────────────────
+function openPhotoModal(idx) {
+  currentPhotoIdx = idx;
+  refreshPhotoModal();
+  document.getElementById('photoModal').classList.remove('hidden');
+}
+
+function refreshPhotoModal() {
+  const p = photos[currentPhotoIdx];
+  document.getElementById('photoModalTitle').textContent = `写真 No.${currentPhotoIdx+1}`;
+  document.getElementById('photoModalImg').src = p.dataUrl;
+  document.getElementById('photoModalNum').textContent = `${currentPhotoIdx+1} / ${photos.length}`;
+  document.getElementById('photoComment').value = p.comment || '';
+}
+
+function closePhotoModal() { document.getElementById('photoModal').classList.add('hidden'); }
+
+function photoNav(d) {
+  const n = currentPhotoIdx + d;
+  if (n < 0 || n >= photos.length) return;
+  currentPhotoIdx = n;
+  refreshPhotoModal();
+}
+
+async function savePhotoComment() {
+  const p = photos[currentPhotoIdx];
+  p.comment = document.getElementById('photoComment').value.trim();
+  await dbPut('photos', p);
+  closePhotoModal();
+  document.getElementById('photoArea').innerHTML = buildPhotoArea();
+  setupDrop();
+  setupCardDrag();
+}
+
+async function deleteCurrentPhoto() {
+  if (!confirm(`No.${currentPhotoIdx+1} の写真を削除しますか？`)) return;
+  await dbDel('photos', photos[currentPhotoIdx].id);
+  photos.splice(currentPhotoIdx, 1);
+  closePhotoModal();
+  document.getElementById('photoArea').innerHTML = buildPhotoArea();
+  setupDrop();
+  setupCardDrag();
+}
+
+async function quickDelete(id) {
+  if (!confirm('この写真を削除しますか？')) return;
+  await dbDel('photos', id);
+  photos = await dbIdx('photos','processId',currentProcId);
+  photos.sort(photoSort);
+  document.getElementById('photoArea').innerHTML = buildPhotoArea();
+  setupDrop();
+  setupCardDrag();
+}
+
+// ── Case Modal ─────────────────────────────────────────────
+function openCaseModal(id) {
+  const m = document.getElementById('caseModal');
+  const c = id ? cases.find(x => x.id===id) : null;
+  document.getElementById('caseModalTitle').textContent = c ? '案件を編集' : '新規案件を作成';
+  document.getElementById('caseEditId').value   = c?.id || '';
+  document.getElementById('f_number').value     = c?.number || '';
+  document.getElementById('f_client').value     = c?.client || '';
+  document.getElementById('f_name').value       = c?.name || '';
+  document.getElementById('f_location').value   = c?.location || '';
+  document.getElementById('f_period').value     = c?.period || '';
+  document.getElementById('f_contractor').value = c?.contractor || '';
+  document.getElementById('f_note').value       = c?.note || '';
+  m.classList.remove('hidden');
+  setTimeout(() => document.getElementById('f_name').focus(), 50);
+}
+
+function closeCaseModal() { document.getElementById('caseModal').classList.add('hidden'); }
+
+async function saveCase() {
+  const name = document.getElementById('f_name').value.trim();
+  if (!name) { alert('工事名称を入力してください'); document.getElementById('f_name').focus(); return; }
+  const id = document.getElementById('caseEditId').value || uid();
+  const existing = cases.find(c => c.id===id);
+  const c = {
+    id,
+    number:     document.getElementById('f_number').value.trim(),
+    client:     document.getElementById('f_client').value.trim(),
+    name,
+    location:   document.getElementById('f_location').value.trim(),
+    period:     document.getElementById('f_period').value.trim(),
+    contractor: document.getElementById('f_contractor').value.trim(),
+    note:       document.getElementById('f_note').value.trim(),
+    createdAt:  existing?.createdAt ?? Date.now()
+  };
+  await dbPut('cases', c);
+  closeCaseModal();
+  cases = await dbAll('cases');
+  cases.sort((a,b) => b.createdAt - a.createdAt);
+  renderSidebar();
+  await selectCase(id);
+}
+
+async function confirmDeleteCase(id) {
+  const c = cases.find(x => x.id===id);
+  if (!confirm(`「${c.name}」を削除しますか？\n工程・写真も含めすべて削除されます。`)) return;
+  showLoad('削除中...');
+  const procs = await dbIdx('processes','caseId',id);
+  for (const p of procs) {
+    const phs = await dbIdx('photos','processId',p.id);
+    for (const ph of phs) await dbDel('photos', ph.id);
+    await dbDel('processes', p.id);
+  }
+  await dbDel('cases', id);
+  hideLoad();
+  currentCaseId = null; currentCase = null; currentProcId = null;
+  cases = await dbAll('cases');
+  cases.sort((a,b) => b.createdAt - a.createdAt);
+  renderSidebar();
+  document.getElementById('mainContent').innerHTML = `<div class="empty-state"><div class="empty-icon">📋</div><h3>案件を選択してください</h3><p>左のメニューから案件を選ぶか、新規作成してください</p></div>`;
+}
+
+// ── Process Modal ──────────────────────────────────────────
+function openProcessModal() { renderProcModal(); document.getElementById('processModal').classList.remove('hidden'); }
+function closeProcessModal() { document.getElementById('processModal').classList.add('hidden'); }
+
+function renderProcModal() {
+  document.getElementById('presetChips').innerHTML = PRESETS_TOKYO.map(n =>
+    `<button class="btn btn-outline btn-sm" onclick="prefill('${h(n)}')">${h(n)}</button>`
+  ).join('');
+  refreshProcList();
+}
+
+async function refreshProcList() {
+  const el = document.getElementById('procManageList');
+  if (!el) return;
+  processes = await dbIdx('processes','caseId',currentCaseId);
+  processes.sort((a,b) => a.order - b.order);
+  if (!processes.length) {
+    el.innerHTML = '<div style="font-size:13px;color:var(--text3);text-align:center;padding:14px;">工程がありません</div>';
+    return;
+  }
+  // count photos per process
+  const counts = {};
+  for (const p of processes) {
+    const phs = await dbIdx('photos','processId',p.id);
+    counts[p.id] = phs.length;
+  }
+  el.innerHTML = processes.map(p => `
+    <div class="proc-list-item">
+      <span class="proc-name">${h(p.name)}</span>
+      <span class="proc-cnt">${counts[p.id]}枚</span>
+      <button class="proc-del-btn" onclick="deleteProc('${p.id}')" title="削除">×</button>
+    </div>`).join('');
+}
+
+function prefill(name) {
+  document.getElementById('newProcName').value = name;
+  document.getElementById('newProcName').focus();
+}
+
+async function addProcess() {
+  const name = document.getElementById('newProcName').value.trim();
+  if (!name) return;
+  const proc = { id: uid(), caseId: currentCaseId, name, order: processes.length, createdAt: Date.now() };
+  await dbPut('processes', proc);
+  document.getElementById('newProcName').value = '';
+  processes = await dbIdx('processes','caseId',currentCaseId);
+  processes.sort((a,b) => a.order - b.order);
+  if (!currentProcId) currentProcId = proc.id;
+  await refreshProcList();
+  // Update tab bar
+  const tb = document.getElementById('tabBar');
+  if (tb) tb.innerHTML = processes.map(p=>`
+    <div class="proc-tab${p.id===currentProcId?' active':''}" onclick="selectProc('${p.id}')">${h(p.name)}</div>`
+  ).join('') + '<div class="proc-tab-add" onclick="openProcessModal()" title="工程を追加・管理">＋</div>';
+}
+
+async function addAllPresets(presetList) {
+  const existing = new Set(processes.map(p => p.name));
+  const toAdd = presetList.filter(n => !existing.has(n));
+  if (!toAdd.length) { alert('テンプレートの工程はすべて追加済みです'); return; }
+  showLoad('工程を追加中...');
+  const base = processes.length;
+  for (let i = 0; i < toAdd.length; i++) {
+    await dbPut('processes', { id: uid(), caseId: currentCaseId, name: toAdd[i], order: base + i, createdAt: Date.now() + i });
+  }
+  hideLoad();
+  processes = await dbIdx('processes','caseId',currentCaseId);
+  processes.sort((a,b) => a.order - b.order);
+  if (!currentProcId) currentProcId = processes[0]?.id ?? null;
+  await refreshProcList();
+  await renderMain();
+}
+
+async function deleteProc(id) {
+  const proc = processes.find(p => p.id===id);
+  const phs = await dbIdx('photos','processId',id);
+  const msg = phs.length
+    ? `「${proc.name}」を削除しますか？\n写真 ${phs.length}枚も削除されます。`
+    : `「${proc.name}」を削除しますか？`;
+  if (!confirm(msg)) return;
+  for (const ph of phs) await dbDel('photos', ph.id);
+  await dbDel('processes', id);
+  if (currentProcId === id) currentProcId = null;
+  processes = await dbIdx('processes','caseId',currentCaseId);
+  processes.sort((a,b) => a.order - b.order);
+  if (!currentProcId && processes[0]) currentProcId = processes[0].id;
+  await refreshProcList();
+  await renderMain();
+}
+
+async function selectProc(id) {
+  currentProcId = id;
+  await renderMain();
+}
+
+// ── PDF Generation ─────────────────────────────────────────
+async function generatePDF() {
+  if (!window.jspdf || !window.html2canvas) {
+    alert('PDFライブラリを読み込み中です。インターネット接続を確認して、少し待ってから再試行してください。');
+    return;
+  }
+  if (!photos.length) { alert('写真がありません。'); return; }
+
+  const proc = processes.find(p => p.id===currentProcId);
+  showLoad('PDFを生成中...');
+
+  try {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
+    const container = document.getElementById('pdf-container');
+    const today = new Date().toLocaleDateString('ja-JP',{year:'numeric',month:'long',day:'numeric'});
+    const totalPhotoPages = Math.ceil(photos.length / 2);
+
+    // Build all pages HTML
+    let html = `
+      <div class="pdf-page">
+        <div class="pdf-cover">
+          <div class="pdf-cover-badge">工事写真帳</div>
+          <div class="pdf-cover-name">${h(currentCase.name)}</div>
+          <div class="pdf-cover-proc">【${h(proc.name)}】</div>
+          <div class="pdf-cover-sep"></div>
+          <div class="pdf-cover-meta">
+            ${currentCase.number    ? `案件番号：${h(currentCase.number)}<br>` : ''}
+            ${currentCase.client    ? `発　注　者：${h(currentCase.client)}<br>` : ''}
+            ${currentCase.location  ? `工事場所：${h(currentCase.location)}<br>` : ''}
+            ${currentCase.period    ? `工　　　期：${h(currentCase.period)}<br>` : ''}
+            ${currentCase.contractor? `施工業者：${h(currentCase.contractor)}<br>` : ''}
+            <br>写真枚数：${photos.length}枚<br>
+            出　力　日：${today}
+          </div>
+        </div>
+      </div>`;
+
+    for (let pi = 0; pi < totalPhotoPages; pi++) {
+      const p1 = photos[pi*2], p2 = photos[pi*2+1];
+      html += `
+        <div class="pdf-page">
+          <div class="pdf-page-header">
+            <div>
+              <div class="pdf-page-title">${h(currentCase.name)}</div>
+              <div class="pdf-page-proc">【${h(proc.name)}】</div>
+            </div>
+            <div class="pdf-page-num">${pi+1} / ${totalPhotoPages}</div>
+          </div>
+          <div class="pdf-photos">
+            <div class="pdf-photo-col">
+              <img src="${p1.dataUrl}">
+              <div class="pdf-photo-label">No.${pi*2+1}</div>
+              <div class="pdf-photo-comment">${h(p1.comment||'').replace(/\n/g,'<br>')}</div>
+            </div>
+            ${p2 ? `
+            <div class="pdf-photo-col">
+              <img src="${p2.dataUrl}">
+              <div class="pdf-photo-label">No.${pi*2+2}</div>
+              <div class="pdf-photo-comment">${h(p2.comment||'').replace(/\n/g,'<br>')}</div>
+            </div>` : '<div class="pdf-empty-col"></div>'}
+          </div>
+        </div>`;
+    }
+
+    container.innerHTML = html;
+    const pages = container.querySelectorAll('.pdf-page');
+
+    for (let i = 0; i < pages.length; i++) {
+      setLoadText(`PDFを生成中... ${i+1}/${pages.length}ページ`);
+      if (i > 0) doc.addPage();
+      const canvas = await html2canvas(pages[i], {
+        scale: 2, useCORS: true, allowTaint: true,
+        backgroundColor: '#ffffff', width: 794, height: 1122
+      });
+      doc.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, 210, 297);
+    }
+
+    container.innerHTML = '';
+    const fname = `${currentCase.name}_${proc.name}_工事写真帳.pdf`.replace(/[\\/:*?"<>|]/g,'_');
+    doc.save(fname);
+  } catch(err) {
+    console.error(err);
+    alert('PDF生成に失敗しました。\n' + err.message);
+  } finally {
+    hideLoad();
+  }
+}
+
+// ── Utils ──────────────────────────────────────────────────
+function h(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function showLoad(t) { setLoadText(t); document.getElementById('loading').classList.remove('hidden'); }
+function hideLoad() { document.getElementById('loading').classList.add('hidden'); }
+function setLoadText(t) { document.getElementById('loadingText').textContent = t; }
+
+// 撮影日時優先でソート（EXIFがなければ取り込み順）
+const photoSort = (a, b) => (a.shotAt || a.addedAt) - (b.shotAt || b.addedAt);
+
+function fmtDate(ts) {
+  return new Date(ts).toLocaleString('ja-JP', { month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit' });
+}
+
+// ── Phone Sync ─────────────────────────────────────────────
+let _phoneSyncUrl = '';
+
+async function openPhoneSyncModal() {
+  document.getElementById('phoneSyncModal').classList.remove('hidden');
+  document.getElementById('cameraUrl').textContent = '取得中...';
+  document.getElementById('qrWrap').innerHTML = '<span style="color:#aaa;font-size:13px;">読み込み中...</span>';
+  try {
+    const res = await fetch('/server-info');
+    const info = await res.json();
+    _phoneSyncUrl = `http://${info.ip}:${info.port}/camera.html`;
+    document.getElementById('cameraUrl').textContent = _phoneSyncUrl;
+    if (window.QRCode) {
+      document.getElementById('qrWrap').innerHTML = '';
+      new QRCode(document.getElementById('qrWrap'), {
+        text: _phoneSyncUrl, width: 200, height: 200,
+        correctLevel: QRCode.CorrectLevel.M
+      });
+    } else {
+      document.getElementById('qrWrap').innerHTML = '<span style="color:#aaa;font-size:12px;">QRコードライブラリ読み込み中…<br>URLをコピーしてスマホで開いてください</span>';
+    }
+  } catch(e) {
+    document.getElementById('cameraUrl').textContent = 'アプリを管理者で再起動してください';
+    document.getElementById('qrWrap').innerHTML = '<span style="color:#c00;font-size:12px;">⚠ サーバー情報を取得できません<br>アプリ起動.bat を管理者で再起動してください</span>';
+  }
+}
+
+function copyUrl() {
+  if (!_phoneSyncUrl) return;
+  navigator.clipboard.writeText(_phoneSyncUrl).then(() => {
+    const el = document.getElementById('cameraUrl');
+    const orig = el.textContent;
+    el.textContent = '✅ コピーしました！';
+    setTimeout(() => { el.textContent = orig; }, 1500);
+  }).catch(() => {
+    prompt('このURLをコピーしてスマホで開いてください：', _phoneSyncUrl);
+  });
+}
+function closePhoneSyncModal() { document.getElementById('phoneSyncModal').classList.add('hidden'); }
+
+async function exportToPhone() {
+  showLoad('案件データを送信中...');
+  try {
+    const allCases = await dbAll('cases');
+    const allProcs = await dbAll('processes');
+    await fetch('/cases', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ cases: allCases, processes: allProcs })
+    });
+    hideLoad();
+    alert(`${allCases.length}件の案件データを送信しました。\nスマホのカメラアプリで「データを再読み込み」を押してください。`);
+  } catch(e) {
+    hideLoad();
+    alert('送信に失敗しました: ' + e.message);
+  }
+}
+
+async function importFromPhone() {
+  showLoad('スマホからの写真を読み込み中...');
+  try {
+    const res = await fetch('/pending-photos');
+    const photos = await res.json();
+    if (!photos.length) { hideLoad(); alert('スマホからの写真はまだありません。'); return; }
+    let imported = 0;
+    for (const photo of photos) {
+      await dbPut('photos', {
+        id: photo.id,
+        processId: photo.processId,
+        dataUrl: photo.dataUrl,
+        comment: photo.comment || '',
+        shotAt: photo.shotAt || Date.now(),
+        addedAt: photo.addedAt || Date.now()
+      });
+      await fetch(`/pending-photos/${photo.id}`, { method: 'DELETE' });
+      imported++;
+    }
+    hideLoad();
+    closePhoneSyncModal();
+    alert(`${imported}枚の写真を取り込みました！`);
+    if (currentCaseId) await selectCase(currentCaseId);
+  } catch(e) {
+    hideLoad();
+    alert('読み込みに失敗しました: ' + e.message);
+  }
+}
+
+// ── Settings ───────────────────────────────────────────────
+function getApiKey() { return localStorage.getItem('gemini_api_key') || ''; }
+
+function openSettingsModal() {
+  document.getElementById('apiKeyInput').value = getApiKey();
+  document.getElementById('apiKeyStatus').textContent = getApiKey() ? '✅ APIキー設定済み' : '';
+  document.getElementById('settingsModal').classList.remove('hidden');
+}
+function closeSettingsModal() { document.getElementById('settingsModal').classList.add('hidden'); }
+function saveSettings() {
+  const key = document.getElementById('apiKeyInput').value.trim();
+  if (key) localStorage.setItem('gemini_api_key', key);
+  else localStorage.removeItem('gemini_api_key');
+  closeSettingsModal();
+  alert(key ? 'APIキーを保存しました！' : 'APIキーを削除しました。');
+}
+
+// ── AI 自動振り分け ─────────────────────────────────────────
+let aiPendingResults = [];
+
+async function aiAssignPhotos() {
+  const apiKey = getApiKey();
+  if (!apiKey) {
+    if (confirm('APIキーが設定されていません。設定画面を開きますか？')) openSettingsModal();
+    return;
+  }
+  if (!currentCaseId) return;
+
+  const procs = await dbIdx('processes', 'caseId', currentCaseId);
+  procs.sort((a,b) => a.order - b.order);
+  if (!procs.length) { alert('先に工程を追加してください'); return; }
+
+  let allPhotos = [];
+  for (const proc of procs) {
+    const phs = await dbIdx('photos', 'processId', proc.id);
+    phs.forEach(p => allPhotos.push({ ...p, _fromProc: proc }));
+  }
+  if (!allPhotos.length) { alert('写真がありません。先に写真を追加してください。'); return; }
+
+  if (!confirm(`${allPhotos.length}枚の写真をAIが解析します。\n解析後に確認画面が表示されます。\n\n実行しますか？`)) return;
+
+  const procNames = procs.map(p => p.name);
+  showLoad(`AI解析中... 0 / ${allPhotos.length}枚`);
+  aiPendingResults = [];
+
+  for (let i = 0; i < allPhotos.length; i++) {
+    setLoadText(`AI解析中... ${i+1} / ${allPhotos.length}枚`);
+    const photo = allPhotos[i];
+    try {
+      const result = await callGeminiVision(photo.dataUrl, apiKey, procNames);
+      const toProc = matchProcess(result.process, procs);
+      aiPendingResults.push({ photo, fromProc: photo._fromProc, toProc, result });
+    } catch(e) {
+      console.warn('AI振り分けエラー:', e);
+      aiPendingResults.push({ photo, fromProc: photo._fromProc, toProc: null, result: { process: '不明', confidence: 0, raw: '' } });
+    }
+  }
+
+  hideLoad();
+  showAiConfirmModal(aiPendingResults, procs);
+}
+
+function showAiConfirmModal(results, procs) {
+  const changed  = results.filter(r => r.toProc && r.toProc.id !== r.fromProc.id).length;
+  const unknown  = results.filter(r => !r.toProc).length;
+  const same     = results.length - changed - unknown;
+  document.getElementById('aiResultSummary').innerHTML =
+    `全${results.length}枚 ／ <span style="color:#6A1B9A;font-weight:600;">移動: ${changed}枚</span> ／ 変更なし: ${same}枚 ／ 判別不能: ${unknown}枚`;
+
+  document.getElementById('aiResultList').innerHTML = results.map((r, idx) => {
+    const conf = r.result.confidence || 0;
+    const confLabel = conf >= 0.8 ? '高' : conf >= 0.5 ? '中' : '低';
+    const confClass = conf >= 0.8 ? 'conf-high' : conf >= 0.5 ? 'conf-mid' : 'conf-low';
+    const isChanged = r.toProc && r.toProc.id !== r.fromProc.id;
+    return `
+    <div class="ai-result-row${isChanged ? ' ai-row-changed' : ''}">
+      <img class="ai-thumb" src="${r.photo.dataUrl}" alt="写真">
+      <div class="ai-result-info">
+        <div class="ai-from-proc">元: ${h(r.fromProc.name)}</div>
+        ${r.result.raw ? `<div class="ai-raw-text">読取: 「${h(r.result.raw)}」</div>` : ''}
+      </div>
+      <div class="ai-arrow">→</div>
+      <div class="ai-result-right">
+        <select class="ai-proc-select" data-idx="${idx}">
+          <option value="">-- 変更なし --</option>
+          ${procs.map(p => `<option value="${p.id}"${r.toProc?.id === p.id ? ' selected' : ''}>${h(p.name)}</option>`).join('')}
+        </select>
+        <span class="ai-conf-badge ${confClass}">${confLabel}</span>
+      </div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('aiConfirmModal').classList.remove('hidden');
+}
+
+function closeAiConfirmModal() {
+  document.getElementById('aiConfirmModal').classList.add('hidden');
+  aiPendingResults = [];
+}
+
+async function applyAiAssignments() {
+  showLoad('保存中...');
+  let moved = 0;
+  const selects = document.querySelectorAll('.ai-proc-select');
+  for (const sel of selects) {
+    const targetProcId = sel.value;
+    if (!targetProcId) continue;
+    const r = aiPendingResults[parseInt(sel.dataset.idx)];
+    if (targetProcId === r.fromProc.id) continue;
+    const photo = { ...r.photo };
+    photo.processId = targetProcId;
+    delete photo._fromProc;
+    await dbPut('photos', photo);
+    moved++;
+  }
+  hideLoad();
+  closeAiConfirmModal();
+  alert(`${moved}枚の写真を移動しました。`);
+  await selectCase(currentCaseId);
+}
+
+async function callGeminiVision(dataUrl, apiKey, procNames) {
+  const base64 = dataUrl.split(',')[1];
+  const mimeType = dataUrl.startsWith('data:image/png') ? 'image/png' : 'image/jpeg';
+  const prompt = `あなたは日本の上下水道工事の現場写真から黒板の文字を読み取るエキスパートです。
+
+この工事写真に写っている黒板の「工種」欄または「工程」欄に書かれた文字を正確に読み取ってください。
+
+読み取った工程名を以下の候補リストと照合し、最も近いものを選んでください：
+${procNames.map((n, i) => `${i+1}. ${n}`).join('\n')}
+
+必ず以下のJSON形式のみで回答してください（前後に余分な文字を含めないこと）：
+{"process":"候補リストの工程名をそのまま記載","confidence":0.0から1.0の数値,"raw":"黒板から読み取った元の文字列"}
+
+黒板がない・文字が読み取れない場合：
+{"process":"不明","confidence":0,"raw":""}`;
+
+  const res = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }, { inline_data: { mime_type: mimeType, data: base64 } }] }],
+        generationConfig: { maxOutputTokens: 128, temperature: 0 }
+      })
+    }
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error?.message || `HTTP ${res.status}`);
+  }
+  const data = await res.json();
+  const text = (data.candidates?.[0]?.content?.parts?.[0]?.text || '').trim();
+  try {
+    const m = text.match(/\{[\s\S]*\}/);
+    if (m) return JSON.parse(m[0]);
+  } catch(_) {}
+  return { process: text || '不明', confidence: 0.5, raw: text };
+}
+
+function norm(s) {
+  return s.replace(/[\s　]/g, '')
+    .replace(/[（(]/g,'(').replace(/[）)]/g,')')
+    .replace(/[．.]/g,'.').normalize('NFKC');
+}
+
+function matchProcess(aiText, procs) {
+  if (!aiText || aiText === '不明') return null;
+  const t = norm(aiText);
+  const exact = procs.find(p => norm(p.name) === t);
+  if (exact) return exact;
+  const partial = procs.find(p => { const pn = norm(p.name); return pn.includes(t) || t.includes(pn); });
+  return partial || null;
+}
+
+// ── PWA: Service Worker & Install Prompt ───────────────────
+let deferredInstall = null;
+
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredInstall = e;
+  document.getElementById('installBtn').classList.remove('hidden');
+});
+
+window.addEventListener('appinstalled', () => {
+  document.getElementById('installBtn').classList.add('hidden');
+  deferredInstall = null;
+});
+
+async function installApp() {
+  if (!deferredInstall) {
+    alert('インストールするには「アプリ起動.bat」からアプリを起動し、\nブラウザのアドレスバーにあるインストールアイコンをクリックしてください。');
+    return;
+  }
+  deferredInstall.prompt();
+  const { outcome } = await deferredInstall.userChoice;
+  if (outcome === 'accepted') document.getElementById('installBtn').classList.add('hidden');
+  deferredInstall = null;
+}
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch(() => {});
+  });
+}
+
+// ── Event Wiring ───────────────────────────────────────────
+['caseModal','processModal','photoModal','settingsModal','aiConfirmModal','phoneSyncModal'].forEach(id => {
+  document.getElementById(id).addEventListener('click', e => {
+    if (e.target === e.currentTarget) document.getElementById(id).classList.add('hidden');
+  });
+});
+
+document.addEventListener('keydown', e => {
+  if (!document.getElementById('photoModal').classList.contains('hidden')) {
+    if (e.key==='ArrowLeft')  photoNav(-1);
+    if (e.key==='ArrowRight') photoNav(1);
+    if (e.key==='Escape')     closePhotoModal();
+  } else if (!document.getElementById('caseModal').classList.contains('hidden') && e.key==='Escape') {
+    closeCaseModal();
+  } else if (!document.getElementById('processModal').classList.contains('hidden') && e.key==='Escape') {
+    closeProcessModal();
+  }
+});
+
+init();
+</script>
+</body>
+</html>

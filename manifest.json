@@ -1,0 +1,16 @@
+{
+  "name": "上下水道工事 写真管理システム",
+  "short_name": "工事写真管理",
+  "description": "上下水道工事の写真整理・帳票PDF出力アプリ",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#1565C0",
+  "theme_color": "#1565C0",
+  "lang": "ja",
+  "orientation": "any",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ],
+  "categories": ["productivity", "utilities"]
+}
