@@ -71,6 +71,8 @@ body{display:flex;flex-direction:column;}
 .shoot-btn{background:#1565C0;border:none;color:#fff;padding:6px 14px;border-radius:6px;
   font-size:13px;cursor:pointer;font-family:inherit;flex-shrink:0;}
 .shoot-btn:active{background:#0D47A1;}
+.shoot-btn.retake{background:#37474F;}
+.shoot-btn.retake:active{background:#263238;}
 .proc-thumbs{display:flex;gap:4px;width:100%;flex-wrap:wrap;}
 .proc-thumb{width:52px;height:52px;object-fit:cover;border-radius:6px;
   cursor:pointer;border:1.5px solid #333;flex-shrink:0;}
@@ -503,7 +505,7 @@ let stream=null, facingMode='environment';
 let photos=[], db=null;
 let bbPos={xFrac:0.015, yFrac:null};
 let _drag=null, _dragCleanup=null;
-let camName='', camProc='';
+let camName='', camProc='', camProcId=null;
 let editingProjId=null; // null=新規, id=編集中
 let camFrom='home'; // where to go back from camera
 let camGroupId=null; // groupId stored when shooting
@@ -526,6 +528,7 @@ function openDB(){
   });
 }
 const dbPut=obj=>new Promise(ok=>{const tx=db.transaction('photos','readwrite');tx.objectStore('photos').put(obj);tx.oncomplete=ok;});
+const dbDel=id=>new Promise(ok=>{const tx=db.transaction('photos','readwrite');tx.objectStore('photos').delete(id);tx.oncomplete=ok;});
 const dbClear=()=>new Promise(ok=>{const tx=db.transaction('photos','readwrite');tx.objectStore('photos').clear();tx.oncomplete=ok;});
 const dbGetAll=()=>new Promise(ok=>{const r=db.transaction('photos','readonly').objectStore('photos').getAll();r.onsuccess=e=>ok(e.target.result||[]);});
 
@@ -545,10 +548,26 @@ const show=id=>document.getElementById(id).classList.remove('hidden');
 const hide=id=>document.getElementById(id).classList.add('hidden');
 const uid=()=>Date.now()+Math.random();
 
+// ── Migration ────────────────────────────────────────────────────
+function migrateProcs(){
+  let changed=false;
+  const projs=getProjects();
+  projs.forEach(proj=>{
+    (proj.groups||[]).forEach(g=>{
+      if(g.procs&&g.procs.length&&typeof g.procs[0]==='string'){
+        g.procs=g.procs.map(name=>({id:String(uid()),name}));
+        changed=true;
+      }
+    });
+  });
+  if(changed) saveProjects(projs);
+}
+
 // ── Init ────────────────────────────────────────────────────────
 async function init(){
   await openDB();
   photos=await dbGetAll();
+  migrateProcs();
   const dl=document.getElementById('procDL2');
   dl.innerHTML=ALL_PROCS.map(p=>`<option value="${p}">`).join('');
   const prefs=getPrefs();
@@ -645,7 +664,10 @@ function renderProject(){
   hide('groupEmpty');
   proj.groups.forEach(g=>{
     const totalProcs=g.procs.length;
-    const doneProcs=g.procs.filter(proc=>photos.some(p=>(p.groupId?p.groupId===g.id:p.name===g.name)&&p.proc===proc)).length;
+    const doneProcs=g.procs.filter(proc=>photos.some(p=>
+      String(p.procId)===String(proc.id)||
+      (!p.procId&&(p.groupId?p.groupId===g.id:p.name===g.name)&&p.proc===proc.name)
+    )).length;
     const totalPh=photos.filter(p=>p.groupId?p.groupId===g.id:p.name===g.name).length;
     const card=document.createElement('div'); card.className='proj-card';
     const info=document.createElement('div'); info.className='proj-info';
@@ -678,7 +700,7 @@ function addWorkType(presetIdx){
   const preset=getCustomPresets()[presetIdx];
   const projs=getProjects();
   const proj=projs.find(p=>p.id===curProjId); if(!proj) return;
-  const newGroup={id:uid(), name:preset.name, procs:[...preset.procs]};
+  const newGroup={id:uid(), name:preset.name, procs:preset.procs.map(name=>({id:String(uid()),name}))};
   proj.groups.push(newGroup);
   saveProjects(projs);
   toast(`${preset.name}を追加しました`);
@@ -703,37 +725,31 @@ function renderGroupDetail(){
   document.getElementById('gdTitle').textContent=g.name;
   const body=document.getElementById('gdBody'); body.innerHTML='';
   g.procs.forEach(proc=>{
-    const procPhotos=photos.filter(p=>(p.groupId?p.groupId===g.id:p.name===g.name)&&p.proc===proc);
-    const hasPh=procPhotos.length>0;
+    const ph=photos.find(p=>
+      String(p.procId)===String(proc.id)||
+      (!p.procId&&(p.groupId?p.groupId===g.id:p.name===g.name)&&p.proc===proc.name));
+    const hasPh=!!ph;
     const row=document.createElement('div'); row.className='proc-row';
     const top=document.createElement('div'); top.className='proc-row-top';
     const dot=document.createElement('div'); dot.className='proc-dot'+(hasPh?' done':'');
-    const nm=document.createElement('span'); nm.className='proc-name'; nm.textContent=proc;
-    const btn=document.createElement('button'); btn.className='shoot-btn'; btn.textContent='📷 撮影';
-    btn.onclick=()=>shootWith(proj.name,proc);
+    const nm=document.createElement('span'); nm.className='proc-name'; nm.textContent=proc.name;
+    const btn=document.createElement('button');
+    btn.className='shoot-btn'+(hasPh?' retake':'');
+    btn.textContent=hasPh?'🔄 再撮影':'📷 撮影';
+    btn.onclick=()=>shootWith(proj.name,proc.name,proc.id);
     top.appendChild(dot); top.appendChild(nm);
     if(hasPh){
-      const cnt=document.createElement('span'); cnt.className='proc-cnt';
-      cnt.textContent=`✓ ${procPhotos.length}枚`;
+      const cnt=document.createElement('span'); cnt.className='proc-cnt'; cnt.textContent='✓';
       top.appendChild(cnt);
     }
     top.appendChild(btn);
     row.appendChild(top);
     if(hasPh){
-      const MAX=5;
       const thumbRow=document.createElement('div'); thumbRow.className='proc-thumbs';
-      procPhotos.slice(0,MAX).forEach((ph,i)=>{
-        const img=document.createElement('img'); img.className='proc-thumb';
-        img.src=ph.dataUrl; img.loading='lazy';
-        img.onclick=e=>{e.stopPropagation();showLightbox(procPhotos,i,proc);};
-        thumbRow.appendChild(img);
-      });
-      if(procPhotos.length>MAX){
-        const more=document.createElement('div'); more.className='proc-thumb-more';
-        more.textContent=`+${procPhotos.length-MAX}`;
-        more.onclick=()=>showLightbox(procPhotos,MAX,proc);
-        thumbRow.appendChild(more);
-      }
+      const img=document.createElement('img'); img.className='proc-thumb';
+      img.src=ph.dataUrl; img.loading='lazy';
+      img.onclick=e=>{e.stopPropagation();showLightbox([ph],0,proc.name);};
+      thumbRow.appendChild(img);
       row.appendChild(thumbRow);
     }
     body.appendChild(row);
@@ -771,7 +787,7 @@ function editGroup(groupId, from){
   geFrom=from||'groupDetail';
   const proj=getProjects().find(p=>p.id===curProjId);
   const g=proj.groups.find(g=>g.id===groupId);
-  geState={projId:curProjId, groupId, procs:[...g.procs]};
+  geState={projId:curProjId, groupId, procs:g.procs.map(p=>({id:p.id,name:p.name}))};
   document.getElementById('groupNameInp').value=g.name;
   document.getElementById('geTitle').textContent='工事件名を編集';
   renderProcEditList();
@@ -789,8 +805,10 @@ function _getExportData(){
   if(!proj||!g) return null;
   const allPhotos=[];
   g.procs.forEach(proc=>{
-    photos.filter(p=>(p.groupId?p.groupId===g.id:p.name===g.name)&&p.proc===proc)
-      .forEach(ph=>allPhotos.push({ph,proc}));
+    const ph=photos.find(p=>
+      String(p.procId)===String(proc.id)||
+      (!p.procId&&(p.groupId?p.groupId===g.id:p.name===g.name)&&p.proc===proc.name));
+    if(ph) allPhotos.push({ph,proc:proc.name});
   });
   return {proj,g,allPhotos};
 }
@@ -932,7 +950,6 @@ async function shareGroupPhotos(){
 
   showLoader('PDF作成中...');
   try{
-    // Load jsPDF from CDN on first use
     if(!window.jspdf){
       await new Promise((res,rej)=>{
         const s=document.createElement('script');
@@ -944,36 +961,106 @@ async function shareGroupPhotos(){
     }
     const {jsPDF}=window.jspdf;
     const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
-    const mg=8,gap=4;
-    const bw=210-2*mg;                          // 194mm
-    const bh=Math.floor((297-2*mg-2*gap)/3);    // ~91mm
+
+    // ── レイアウト定数 ─────────────────────────────────────────────
+    const ppm=4;       // canvas解像度: 4px/mm
+    const pgW=210,pgH=297;
+    const mgL=6,mgR=6,mgT=6;
+    const usableW=pgW-mgL-mgR; // 198mm
+    const phW=126;     // 写真エリア幅 (130mm列 - 4mm右パディング)
+    const colGap=4;    // 写真↔工種欄の間隔
+    const lblX=mgL+phW+colGap; // 136mm
+    const lblW=pgW-lblX-mgR;   // 68mm
+    const rowH=82;     // 1行の高さ
+    const phH=78;      // 写真高さ
+    const HDR1=14, HDR2=8; // ページ1ヘッダー高 / 2ページ目以降
+
+    const dateStr=proj.date?proj.date.replace(/(\d{4})-(\d{2})-(\d{2})/,'$1年$2月$3日'):'';
+    const metaStr=[dateStr,proj.location,proj.contractor].filter(Boolean).join('　／　');
+    const font='"Hiragino Sans","Meiryo","Yu Gothic",sans-serif';
+
+    // ── canvasヘルパー ─────────────────────────────────────────────
+    function mkCanvas(wMM,hMM){
+      const c=document.createElement('canvas');
+      c.width=Math.round(wMM*ppm);c.height=Math.round(hMM*ppm);
+      const ctx=c.getContext('2d');
+      ctx.fillStyle='#fff';ctx.fillRect(0,0,c.width,c.height);
+      return {c,ctx};
+    }
+    function makeHdrImg(isFirst){
+      const hMM=isFirst?HDR1:HDR2;
+      const {c,ctx}=mkCanvas(usableW,hMM);
+      ctx.fillStyle='#000';
+      if(isFirst){
+        ctx.font=`bold 22px ${font}`;
+        ctx.fillText(`${proj.name}　${g.name}`,0,22,c.width);
+        if(metaStr){ctx.font=`14px ${font}`;ctx.fillStyle='#555';ctx.fillText(metaStr,0,38,c.width);}
+      } else {
+        ctx.font=`bold 18px ${font}`;
+        ctx.fillText(`${proj.name}　${g.name}`,0,18,c.width);
+      }
+      ctx.strokeStyle='#000';ctx.lineWidth=2;
+      ctx.beginPath();ctx.moveTo(0,c.height-2);ctx.lineTo(c.width,c.height-2);ctx.stroke();
+      return c.toDataURL('image/jpeg',0.92);
+    }
+    function makeLblImg(procName){
+      const {c,ctx}=mkCanvas(lblW,phH);
+      const fsPx=18; // ≈12pt at ppm=4
+      ctx.fillStyle='#000';
+      ctx.font=`bold ${fsPx}px ${font}`;
+      ctx.fillText(procName,4,fsPx+2,c.width-8);
+      const lineY=fsPx+10;
+      ctx.strokeStyle='#000';ctx.lineWidth=2;
+      ctx.beginPath();ctx.moveTo(0,lineY);ctx.lineTo(c.width,lineY);ctx.stroke();
+      ctx.setLineDash([2,4]);ctx.strokeStyle='#bbb';ctx.lineWidth=1;
+      const numLines=8,startY=lineY+8;
+      const sp=Math.round((c.height-startY-4)/numLines);
+      for(let i=0;i<numLines;i++){
+        const ly=startY+i*sp+Math.round(sp/2);
+        ctx.beginPath();ctx.moveTo(4,ly);ctx.lineTo(c.width-4,ly);ctx.stroke();
+      }
+      return c.toDataURL('image/jpeg',0.90);
+    }
+
+    // ── ページ描画 ─────────────────────────────────────────────────
+    let pageRows=0,curY=mgT;
+
+    // 1ページ目ヘッダー
+    doc.addImage(makeHdrImg(true),'JPEG',mgL,mgT,usableW,HDR1,'','FAST');
+    curY=mgT+HDR1;
 
     for(let i=0;i<allPhotos.length;i++){
-      if(i>0&&i%3===0) doc.addPage();
-      const pi=i%3;
-      const bx=mg, by=mg+pi*(bh+gap);
-      const src=await _resizeForPDF(allPhotos[i].ph.dataUrl);
-      // Fit image inside box maintaining aspect ratio (object-fit:contain)
-      const im=await new Promise(ok=>{
-        const x=new Image();x.onload=()=>ok(x);x.onerror=()=>ok(null);x.src=src;
-      });
-      if(!im){doc.addImage(src,'JPEG',bx,by,bw,bh,'','FAST');continue;}
-      const iw=im.naturalWidth||im.width, ih=im.naturalHeight||im.height;
-      const iAR=iw/ih, bAR=bw/bh;
-      let dw,dh,dx=bx,dy=by;
-      if(iAR>=bAR){dw=bw;dh=Math.round(bw/iAR);dy=by+Math.round((bh-dh)/2);}
-      else{dh=bh;dw=Math.round(bh*iAR);dx=bx+Math.round((bw-dw)/2);}
+      if(pageRows===3){
+        doc.addPage();
+        doc.addImage(makeHdrImg(false),'JPEG',mgL,mgT,usableW,HDR2,'','FAST');
+        curY=mgT+HDR2; pageRows=0;
+      }
+      const {ph,proc}=allPhotos[i];
+      const src=await _resizeForPDF(ph.dataUrl);
+
+      // 写真: object-fit:contain 相当
+      const im=await new Promise(ok=>{const x=new Image();x.onload=()=>ok(x);x.onerror=()=>ok(null);x.src=src;});
+      let dx=mgL,dy=curY,dw=phW,dh=phH;
+      if(im){
+        const iw=im.naturalWidth||im.width,ih=im.naturalHeight||im.height;
+        const iAR=iw/ih,bAR=phW/phH;
+        if(iAR>=bAR){dw=phW;dh=Math.round(phW/iAR);dy=curY+Math.round((phH-dh)/2);}
+        else{dh=phH;dw=Math.round(phH*iAR);dx=mgL+Math.round((phW-dw)/2);}
+      }
       doc.addImage(src,'JPEG',dx,dy,dw,dh,'','FAST');
+
+      // 工種欄（canvasで日本語テキストを描画）
+      doc.addImage(makeLblImg(proc),'JPEG',lblX,curY,lblW,phH,'','FAST');
+
+      curY+=rowH; pageRows++;
     }
 
     const blob=doc.output('blob');
     const fn=`${proj.name}_${g.name}.pdf`;
     const file=new File([blob],fn,{type:'application/pdf'});
-
     if(navigator.canShare&&navigator.canShare({files:[file]})){
       await navigator.share({title:`${proj.name} ${g.name}`,files:[file]});
     } else {
-      // Download fallback (Android / desktop)
       const url=URL.createObjectURL(blob);
       const a=document.createElement('a');
       a.href=url;a.download=fn;
@@ -999,7 +1086,7 @@ function deleteGroup(groupId){
 
 function loadPreset(idx){
   const p=getCustomPresets()[idx];
-  geState.procs=[...p.procs];
+  geState.procs=p.procs.map(name=>({id:String(uid()),name}));
   renderProcEditList();
   toast(`${p.name}の工種を読み込みました`);
 }
@@ -1008,8 +1095,9 @@ function renderProcEditList(){
   const list=document.getElementById('procEditList'); list.innerHTML='';
   geState.procs.forEach((proc,i)=>{
     const row=document.createElement('div'); row.className='proc-edit-row';
+    row.dataset.procId=proc.id;
     const handle=document.createElement('span'); handle.className='proc-drag-handle'; handle.textContent='☰';
-    const nm=document.createElement('span'); nm.className='proc-edit-name'; nm.textContent=proc;
+    const nm=document.createElement('span'); nm.className='proc-edit-name'; nm.textContent=proc.name;
     const del=document.createElement('button'); del.className='proc-del-btn'; del.textContent='✕';
     del.onclick=()=>{geState.procs.splice(i,1);renderProcEditList();};
     row.appendChild(handle); row.appendChild(nm); row.appendChild(del); list.appendChild(row);
@@ -1056,7 +1144,7 @@ function makeProcListSortable(){
       else target.insertAdjacentElement('afterend',dragging);
     }
     // sync geState.procs from DOM order
-    geState.procs=getRows().map(r=>r.querySelector('.proc-edit-name').textContent);
+    geState.procs=getRows().map(r=>({id:r.dataset.procId,name:r.querySelector('.proc-edit-name').textContent}));
     dragging=null; lastOver=null;
   }
 
@@ -1074,7 +1162,7 @@ function makeProcListSortable(){
 function addProcItem(){
   const val=document.getElementById('addProcInp').value.trim();
   if(!val){toast('工種を入力してください');return;}
-  geState.procs.push(val);
+  geState.procs.push({id:String(uid()),name:val});
   document.getElementById('addProcInp').value='';
   renderProcEditList();
 }
@@ -1084,7 +1172,7 @@ function saveGroup(){
     // テンプレートモード
     if(!geState.procs.length){toast('工種を1つ以上追加してください');return;}
     const presets=getCustomPresets();
-    presets[tplEditIdx].procs=geState.procs;
+    presets[tplEditIdx].procs=geState.procs.map(p=>p.name);
     saveCustomPresets(presets);
     tplEditIdx=null;
     document.getElementById('groupNameInp').readOnly=false;
@@ -1122,9 +1210,9 @@ function cancelGroupEdit(){
 }
 
 // ── CAMERA ──────────────────────────────────────────────────────
-function shootWith(name, proc){
+function shootWith(name, proc, procId){
   const proj=getProjects().find(p=>p.id===curProjId);
-  camName=name; camProc=proc; camGroupId=curGroupId;
+  camName=name; camProc=proc; camProcId=procId?String(procId):null; camGroupId=curGroupId;
   camContractor=proj?proj.contractor||DEFAULT_CONTRACTOR:'';
   camLocation=proj?proj.location||'':'';
   camFrom='groupDetail';
@@ -1271,9 +1359,13 @@ async function onAlbumFile(e){
   hideLoader();
 }
 async function addPhoto(dataUrl){
-  const photo={id:uid(),dataUrl,proc:getProc(),name:getName(),groupId:camGroupId,date:todayStr()};
+  if(camProcId){
+    const idx=photos.findIndex(p=>String(p.procId)===camProcId&&p.groupId===camGroupId);
+    if(idx!==-1){await dbDel(photos[idx].id);photos.splice(idx,1);}
+  }
+  const photo={id:uid(),dataUrl,proc:getProc(),procId:camProcId||undefined,name:getName(),groupId:camGroupId,date:todayStr()};
   photos.push(photo);await dbPut(photo);updateGalCount();
-  autoSave(photo);toast(`📷 保存しました（${photos.length}枚目）`);
+  autoSave(photo);toast('📷 保存しました');
 }
 function autoSave(photo){
   const proc=photo.proc.replace(/[\\/:*?"<>|]/g,'_');
@@ -1516,7 +1608,7 @@ function openTemplateEdit(idx){
   tplEditIdx=idx;
   geFrom='template';
   const p=getCustomPresets()[idx];
-  geState={projId:null, groupId:null, procs:[...p.procs]};
+  geState={projId:null, groupId:null, procs:p.procs.map(name=>({id:String(uid()),name}))};
   document.getElementById('groupNameInp').value=p.name;
   document.getElementById('groupNameInp').readOnly=true;
   document.getElementById('geTitle').textContent='テンプレートを編集';
