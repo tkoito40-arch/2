@@ -364,6 +364,27 @@ body{display:flex;flex-direction:column;}
   </div>
 </div>
 
+<!-- Project Modal -->
+<div class="modal-bg hidden" id="projModal">
+  <div class="modal">
+    <h2 id="projModalTitle">案件を追加</h2>
+    <div class="field">
+      <label>案件名</label>
+      <input type="text" id="pmName" placeholder="例：○○1丁目水道管工事">
+    </div>
+    <div class="field">
+      <label>施工年月日</label>
+      <input type="date" id="pmDate">
+    </div>
+    <div class="field">
+      <label>場所</label>
+      <input type="text" id="pmLocation" placeholder="例：○○市○○町1-2-3">
+    </div>
+    <button class="modal-btn modal-save" onclick="saveProjModal()">保存</button>
+    <button class="modal-btn modal-cancel" onclick="closeProjModal()">キャンセル</button>
+  </div>
+</div>
+
 <!-- Settings Modal -->
 <div class="modal-bg hidden" id="settingsModal">
   <div class="modal">
@@ -397,6 +418,7 @@ let photos=[], db=null;
 let bbPos={xFrac:0.015, yFrac:null};
 let _drag=null, _dragCleanup=null;
 let camName='', camProc='';
+let editingProjId=null; // null=新規, id=編集中
 let camFrom='home'; // where to go back from camera
 let curProjId=null; // currently open project
 let curGroupId=null; // currently open group (工事件名)
@@ -451,25 +473,52 @@ function renderProjects(){
   hide('projEmpty');
   projs.forEach(p=>{
     const totalProcs=p.groups.reduce((s,g)=>s+g.procs.length,0);
+    const dateStr=p.date?p.date.replace(/(\d{4})-(\d{2})-(\d{2})/,'$1年$2月$3日'):'';
+    const meta=[dateStr,p.location].filter(Boolean).join('　／　');
     const card=document.createElement('div'); card.className='proj-card';
     const info=document.createElement('div'); info.className='proj-info';
-    info.innerHTML=`<div class="proj-name">${p.name}</div><div class="proj-sub">${p.groups.length}グループ・${totalProcs}工種</div>`;
+    info.innerHTML=`<div class="proj-name">${p.name}</div>
+      ${meta?`<div class="proj-sub" style="color:#42A5F5">${meta}</div>`:''}
+      <div class="proj-sub">${p.groups.length}件・${totalProcs}工種</div>`;
     info.onclick=()=>openProject(p.id);
-    const arrow=document.createElement('div'); arrow.className='proj-arrow'; arrow.textContent='›';
-    arrow.onclick=()=>openProject(p.id);
     const del=document.createElement('button'); del.className='proj-del'; del.textContent='🗑';
     del.onclick=e=>{e.stopPropagation();deleteProject(p.id);};
+    const arrow=document.createElement('div'); arrow.className='proj-arrow'; arrow.textContent='›';
+    arrow.onclick=()=>openProject(p.id);
     card.appendChild(info); card.appendChild(del); card.appendChild(arrow);
     list.appendChild(card);
   });
 }
 
 function addProject(){
-  const name=prompt('案件名（工事件名）を入力してください');
-  if(!name||!name.trim()) return;
+  editingProjId=null;
+  document.getElementById('projModalTitle').textContent='案件を追加';
+  document.getElementById('pmName').value='';
+  document.getElementById('pmDate').value='';
+  document.getElementById('pmLocation').value='';
+  show('projModal');
+}
+
+function openProjModal(){ show('projModal'); }
+function closeProjModal(){ hide('projModal'); }
+
+function saveProjModal(){
+  const name=document.getElementById('pmName').value.trim();
+  const date=document.getElementById('pmDate').value;
+  const location=document.getElementById('pmLocation').value.trim();
+  if(!name){toast('案件名を入力してください');return;}
   const projs=getProjects();
-  projs.push({id:uid(), name:name.trim(), groups:[]});
-  saveProjects(projs); renderProjects(); toast('案件を作成しました');
+  if(editingProjId){
+    const p=projs.find(p=>p.id===editingProjId);
+    if(p){p.name=name;p.date=date;p.location=location;}
+    saveProjects(projs);
+    if(curProjId===editingProjId) document.getElementById('projTitle').textContent=name;
+    renderProjects(); toast('更新しました');
+  } else {
+    projs.push({id:uid(),name,date,location,groups:[]});
+    saveProjects(projs); renderProjects(); toast('案件を作成しました');
+  }
+  closeProjModal();
 }
 
 function deleteProject(id){
@@ -565,13 +614,12 @@ function renderGroupDetail(){
 
 function editProjectName(){
   const proj=getProjects().find(p=>p.id===curProjId); if(!proj) return;
-  const name=prompt('案件名を変更してください', proj.name);
-  if(!name||!name.trim()) return;
-  const projs=getProjects();
-  projs.find(p=>p.id===curProjId).name=name.trim();
-  saveProjects(projs);
-  document.getElementById('projTitle').textContent=name.trim();
-  renderProjects(); toast('更新しました');
+  editingProjId=curProjId;
+  document.getElementById('projModalTitle').textContent='案件を編集';
+  document.getElementById('pmName').value=proj.name;
+  document.getElementById('pmDate').value=proj.date||'';
+  document.getElementById('pmLocation').value=proj.location||'';
+  show('projModal');
 }
 
 function showHome(){
