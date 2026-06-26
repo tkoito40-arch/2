@@ -413,6 +413,10 @@ body{display:flex;flex-direction:column;}
       <input type="text" id="pmName" placeholder="例：○○1丁目水道管工事">
     </div>
     <div class="field">
+      <label>施工業者</label>
+      <input type="text" id="pmContractor" placeholder="例：㈲小糸設備">
+    </div>
+    <div class="field">
       <label>施工年月日</label>
       <input type="date" id="pmDate">
     </div>
@@ -429,11 +433,6 @@ body{display:flex;flex-direction:column;}
 <div class="modal-bg hidden" id="settingsModal">
   <div class="modal">
     <h2>⚙ 設定</h2>
-    <div class="field">
-      <label>施工者名（黒板に追加表示）</label>
-      <input type="text" id="contractorInp" placeholder="例：○○工業株式会社">
-    </div>
-    <button class="modal-btn modal-save" onclick="saveSettings()">保存</button>
     <button class="modal-btn" style="background:#2E3A4A;color:#42A5F5;border:1px solid #42A5F5"
       onclick="closeSettings();openTemplates()">📋 工種テンプレートを編集</button>
     <button class="modal-btn modal-cancel" onclick="closeSettings()">キャンセル</button>
@@ -475,6 +474,7 @@ let camName='', camProc='';
 let editingProjId=null; // null=新規, id=編集中
 let camFrom='home'; // where to go back from camera
 let camGroupId=null; // groupId stored when shooting
+let camContractor=''; // 施工業者名 stored when shooting
 let curProjId=null; // currently open project
 let curGroupId=null; // currently open group (工事種別)
 let wtFrom='project'; // where to return from sWorkType
@@ -518,7 +518,7 @@ async function init(){
   const dl=document.getElementById('procDL2');
   dl.innerHTML=ALL_PROCS.map(p=>`<option value="${p}">`).join('');
   const prefs=getPrefs();
-  if(prefs.contractor) document.getElementById('contractorInp').value=prefs.contractor;
+  // (contractor now stored per-project)
   updateGalCount();
   renderProjects();
   if('serviceWorker' in navigator) navigator.serviceWorker.register('sw_camera.js').catch(()=>{});
@@ -549,10 +549,13 @@ function renderProjects(){
   });
 }
 
+const DEFAULT_CONTRACTOR='㈲小糸設備';
+
 function addProject(){
   editingProjId=null;
   document.getElementById('projModalTitle').textContent='案件を追加';
   document.getElementById('pmName').value='';
+  document.getElementById('pmContractor').value=DEFAULT_CONTRACTOR;
   document.getElementById('pmDate').value='';
   document.getElementById('pmLocation').value='';
   show('projModal');
@@ -563,20 +566,21 @@ function closeProjModal(){ hide('projModal'); }
 
 function saveProjModal(){
   const name=document.getElementById('pmName').value.trim();
+  const contractor=document.getElementById('pmContractor').value.trim()||DEFAULT_CONTRACTOR;
   const date=document.getElementById('pmDate').value;
   const location=document.getElementById('pmLocation').value.trim();
   if(!name){toast('案件名を入力してください');return;}
   const projs=getProjects();
   if(editingProjId){
     const p=projs.find(p=>p.id===editingProjId);
-    if(p){p.name=name;p.date=date;p.location=location;}
+    if(p){p.name=name;p.contractor=contractor;p.date=date;p.location=location;}
     saveProjects(projs);
     if(curProjId===editingProjId) renderProject();
     renderProjects(); toast('更新しました');
     closeProjModal();
   } else {
     const newId=uid();
-    projs.push({id:newId,name,date,location,groups:[]});
+    projs.push({id:newId,name,contractor,date,location,groups:[]});
     saveProjects(projs); renderProjects();
     curProjId=newId;
     closeProjModal();
@@ -707,6 +711,7 @@ function editProjectName(){
   editingProjId=curProjId;
   document.getElementById('projModalTitle').textContent='案件を編集';
   document.getElementById('pmName').value=proj.name;
+  document.getElementById('pmContractor').value=proj.contractor||DEFAULT_CONTRACTOR;
   document.getElementById('pmDate').value=proj.date||'';
   document.getElementById('pmLocation').value=proj.location||'';
   show('projModal');
@@ -877,8 +882,10 @@ function cancelGroupEdit(){
 
 // ── CAMERA ──────────────────────────────────────────────────────
 function shootWith(name, proc){
-  // name = proj.name が渡されるが、黒板には案件名を表示する
-  camName=name; camProc=proc; camGroupId=curGroupId; camFrom='groupDetail';
+  const proj=getProjects().find(p=>p.id===curProjId);
+  camName=name; camProc=proc; camGroupId=curGroupId;
+  camContractor=proj?proj.contractor||DEFAULT_CONTRACTOR:'';
+  camFrom='groupDetail';
   hide('sHome'); hide('sProject'); hide('sWorkType'); hide('sGroupDetail'); hide('sGroupEdit'); hide('sGal'); show('sCam');
   updateOverlay(); initDrag(); startCam();
 }
@@ -1020,7 +1027,6 @@ const compositeBlackboard=d=>new Promise(ok=>{const i=new Image();i.onload=()=>{
 
 // ── BLACKBOARD DRAW ──────────────────────────────────────────────
 function drawBlackboard(ctx,cw,ch){
-  const prefs=getPrefs();
   const kojiName=getName(),proc=getProc(),dateStr=todayStr();
   const bw=Math.round(cw*0.50), bh=Math.round(bw*3/4);
   const bx=bbPos.yFrac!==null?Math.round(cw*bbPos.xFrac):Math.round(cw*0.015);
@@ -1032,7 +1038,7 @@ function drawBlackboard(ctx,cw,ch){
   const nameWrap=ctx.measureText(kojiName).width>maxValW;
   const rows=[
     {lbl:'工事名',val:kojiName,wrap:nameWrap},
-    prefs.contractor?{lbl:'施工者',val:prefs.contractor,wrap:false}:null,
+    camContractor?{lbl:'施工者',val:camContractor,wrap:false}:null,
     {lbl:'撮影日',val:dateStr,wrap:false},
   ].filter(Boolean);
   const sH=Math.round(bh*0.16);
@@ -1173,9 +1179,8 @@ function openTemplateEdit(idx){
 }
 
 // ── SETTINGS ─────────────────────────────────────────────────────
-function openSettings(){document.getElementById('contractorInp').value=getPrefs().contractor||'';show('settingsModal');}
+function openSettings(){show('settingsModal');}
 function closeSettings(){hide('settingsModal');}
-function saveSettings(){const p=getPrefs();p.contractor=document.getElementById('contractorInp').value.trim();setPrefs(p);closeSettings();toast('設定を保存しました');}
 
 // ── TOAST / LOADER ───────────────────────────────────────────────
 function toast(msg,dur=2800){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),dur);}
