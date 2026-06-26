@@ -184,6 +184,33 @@ body{display:flex;flex-direction:column;}
   transition:transform .1s,background .1s;}
 .shutter-ring:active .shutter-inner{background:#ccc;transform:scale(.9);}
 
+/* ── CAMERA: LANDSCAPE ── */
+@media (orientation: landscape) {
+  #sCam {flex-direction: row;}
+  #sCam .cam-top {
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+    width: max(calc(env(safe-area-inset-left) + 40px), 40px);
+    padding: 8px 0 16px max(env(safe-area-inset-left), 6px);
+    border-bottom: none;
+    border-right: 1px solid #1a1a1a;
+    writing-mode: vertical-rl;
+  }
+  #sCam .cam-name, #sCam .cam-proc {display: none;}
+  #sCam .cam-edit {font-size: 12px; transform: rotate(180deg);}
+  #sCam .viewfinder {height: auto;}
+  #sCam .cam-bar {
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-around;
+    padding: 12px max(env(safe-area-inset-right), 10px) 12px 6px;
+    border-top: none;
+    border-left: 1px solid #1a1a1a;
+    width: max(calc(env(safe-area-inset-right) + 78px), 78px);
+  }
+}
+
 /* ── GALLERY ── */
 .gal-hdr{display:flex;align-items:center;gap:8px;
   padding:max(env(safe-area-inset-top),12px) 14px 10px;
@@ -934,7 +961,8 @@ function initDrag(){
   if(_dragCleanup)_dragCleanup();
   const getBBBounds=()=>{
     const vfR=vf.getBoundingClientRect(),vfW=vfR.width,vfH=vfR.height;
-    const bw=Math.round(vfW*0.50),bh=Math.round(bw*3/4);
+    const bbWFrac=(vfW>vfH)?0.30:0.50;
+    const bw=Math.round(vfW*bbWFrac),bh=Math.round(bw*3/4);
     const bx=bbPos.yFrac!==null?Math.round(vfW*bbPos.xFrac):Math.round(vfW*0.015);
     const by=bbPos.yFrac!==null?Math.round(vfH*bbPos.yFrac):vfH-bh-Math.round(vfH*0.015);
     return {bx,by,bw,bh,vfR,vfW,vfH};
@@ -943,7 +971,8 @@ function initDrag(){
     if(!_drag)return;e.preventDefault();
     const t=e.touches?e.touches[0]:e;
     const {vfR,vfW,vfH}=getBBBounds();
-    const bw=Math.round(vfW*0.50),bh=Math.round(bw*3/4);
+    const bbWFrac=(vfW>vfH)?0.30:0.50;
+    const bw=Math.round(vfW*bbWFrac),bh=Math.round(bw*3/4);
     let nx=_drag.bx+(t.clientX-_drag.cx),ny=_drag.by+(t.clientY-_drag.cy);
     nx=Math.max(0,Math.min(vfW-bw,nx));
     ny=Math.max(0,Math.min(vfH-bh,ny));
@@ -1041,7 +1070,8 @@ function drawBlackboard(ctx,cw,ch){
   const kojiName=getName(), proc=getProc(), dateStr=todayStr();
   const location=camLocation, contractor=camContractor;
 
-  const bw=Math.round(cw*0.50), bh=Math.round(bw*3/4);
+  const bbWFrac=(cw>ch)?0.30:0.50;
+  const bw=Math.round(cw*bbWFrac), bh=Math.round(bw*3/4);
   const bx=bbPos.yFrac!==null?Math.round(cw*bbPos.xFrac):Math.round(cw*0.015);
   const by=bbPos.yFrac!==null?Math.round(ch*bbPos.yFrac):ch-bh-Math.round(ch*0.015);
   const lw=Math.round(bw*0.27), brd=Math.max(2,Math.round(cw*0.002));
@@ -1281,6 +1311,11 @@ function showLoader(msg='処理中...'){if(loaderEl)return;loaderEl=document.cre
 function hideLoader(){if(loaderEl){loaderEl.remove();loaderEl=null;}}
 
 init();
+
+window.addEventListener('resize', ()=>{
+  const sCam=document.getElementById('sCam');
+  if(sCam&&!sCam.classList.contains('hidden')) requestAnimationFrame(renderOverlayCanvas);
+});
 </script>
 </body>
 </html>
