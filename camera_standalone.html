@@ -47,7 +47,8 @@ body{display:flex;flex-direction:column;}
 .field select option{background:#151515;}
 
 /* BB preview */
-.bb-frame{background:#1A5C1A;border:2.5px solid #fff;border-radius:2px;overflow:hidden;}
+.bb-frame{background:#1A5C1A;border:2.5px solid #fff;border-radius:2px;overflow:hidden;
+  display:flex;flex-direction:column;width:50%;margin:0 auto;aspect-ratio:3/4;}
 .bb-table{width:100%;border-collapse:collapse;}
 .bb-table td{border:1px solid #fff;padding:6px 9px;font-size:13px;color:#fff;}
 .bb-table .bl{width:68px;white-space:nowrap;}
@@ -74,8 +75,15 @@ body{display:flex;flex-direction:column;}
 #camVideo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;}
 
 /* Live BB overlay */
-.bb-ov{position:absolute;bottom:10px;left:10px;width:54%;z-index:5;
-  background:#1A5C1A;border:2px solid #fff;border-radius:2px;opacity:.92;}
+.bb-ov{position:absolute;bottom:10px;left:10px;width:40%;z-index:5;
+  aspect-ratio:3/4;background:#1A5C1A;border:2px solid #fff;border-radius:2px;
+  opacity:.92;cursor:grab;touch-action:none;display:flex;flex-direction:column;
+  user-select:none;-webkit-user-select:none;}
+.bb-ov:active{cursor:grabbing;}
+.bb-ov .bb-table{flex-shrink:0;}
+.bb-proc-area{flex:1;display:flex;align-items:center;justify-content:center;
+  color:#fff;font-weight:700;padding:5px;text-align:center;
+  border-top:1px solid #fff;word-break:break-all;line-height:1.3;font-size:1.1em;}
 
 /* Fallback */
 .fallback-area{position:absolute;inset:0;display:flex;flex-direction:column;
@@ -196,10 +204,9 @@ body{display:flex;flex-direction:column;}
       <div class="bb-frame">
         <table class="bb-table">
           <tr><td class="bl">工事名</td><td class="bv" id="pv_n">—</td></tr>
-          <tr><td class="bl">工　種</td><td class="bv" id="pv_p">—</td></tr>
           <tr><td class="bl">撮影日</td><td class="bv" id="pv_d"></td></tr>
-          <tr><td colspan="2" class="bb-sp"></td></tr>
         </table>
+        <div class="bb-proc-area" id="pv_p">—</div>
       </div>
     </div>
     <div class="gal-link hidden" id="galLink" onclick="showGallery()">
@@ -223,10 +230,9 @@ body{display:flex;flex-direction:column;}
     <div class="bb-ov" id="bbOv">
       <table class="bb-table">
         <tr><td class="bl">工事名</td><td class="bv" id="ov_n"></td></tr>
-        <tr><td class="bl">工　種</td><td class="bv" id="ov_p"></td></tr>
         <tr><td class="bl">撮影日</td><td class="bv" id="ov_d"></td></tr>
-        <tr><td colspan="2" class="bb-sp"></td></tr>
       </table>
+      <div class="bb-proc-area" id="ov_p"></div>
     </div>
     <div class="fallback-area hidden" id="fallbackArea">
       <p>カメラを起動するには<br>下のボタンをタップ</p>
@@ -294,6 +300,8 @@ let facingMode = 'environment';
 let photos = [];
 let camFrom = 'info';
 let db = null;
+let bbPos = { xFrac: 0.015, yFrac: null }; // yFrac null = from bottom
+let _drag = null, _dragCleanup = null;
 
 // ── IndexedDB ──────────────────────────────────────────────────
 function openDB() {
@@ -382,6 +390,9 @@ function updatePreview() {
   document.getElementById('ov_d').textContent = d;
   document.getElementById('cName').textContent = n || '（工事名未入力）';
   document.getElementById('cProc').textContent = p;
+  // 工種フォントサイズを黒板サイズに合わせる
+  const bbW = document.getElementById('bbOv').offsetWidth || 140;
+  document.getElementById('ov_p').style.fontSize = Math.max(11, Math.round(bbW * 0.14)) + 'px';
 }
 
 function updateGalCount() {
@@ -403,7 +414,57 @@ async function showCamera() {
   camFrom = 'cam';
   hide('sInfo'); show('sCam'); hide('sGal');
   updatePreview();
+  initDrag();
   await startCam();
+}
+
+function initDrag() {
+  const el = document.getElementById('bbOv');
+  const vf = document.getElementById('viewfinder');
+
+  // 位置をデフォルト（左下）にリセット
+  el.style.left='10px'; el.style.bottom='10px'; el.style.top='auto'; el.style.right='auto';
+  bbPos = { xFrac: 0.015, yFrac: null };
+
+  if (_dragCleanup) _dragCleanup();
+
+  const onMove = e => {
+    if (!_drag) return;
+    e.preventDefault();
+    const t = e.touches ? e.touches[0] : e;
+    const vfRect = vf.getBoundingClientRect();
+    let nx = _drag.ex + (t.clientX - _drag.cx);
+    let ny = _drag.ey + (t.clientY - _drag.cy);
+    nx = Math.max(0, Math.min(vfRect.width  - el.offsetWidth,  nx));
+    ny = Math.max(0, Math.min(vfRect.height - el.offsetHeight, ny));
+    el.style.left = nx + 'px'; el.style.top = ny + 'px'; el.style.bottom = 'auto';
+    bbPos = { xFrac: nx / vfRect.width, yFrac: ny / vfRect.height };
+    _drag.cx = t.clientX; _drag.cy = t.clientY; _drag.ex = nx; _drag.ey = ny;
+  };
+  const onEnd = () => { _drag = null; };
+
+  const onStart = e => {
+    const t = e.touches ? e.touches[0] : e;
+    const rect = el.getBoundingClientRect();
+    const vfRect = vf.getBoundingClientRect();
+    _drag = { cx: t.clientX, cy: t.clientY, ex: rect.left - vfRect.left, ey: rect.top - vfRect.top };
+  };
+
+  el.addEventListener('touchstart', onStart, { passive: true });
+  el.addEventListener('mousedown', onStart);
+  document.addEventListener('touchmove', onMove, { passive: false });
+  document.addEventListener('touchend', onEnd);
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('mouseup', onEnd);
+
+  _dragCleanup = () => {
+    el.removeEventListener('touchstart', onStart);
+    el.removeEventListener('mousedown', onStart);
+    document.removeEventListener('touchmove', onMove);
+    document.removeEventListener('touchend', onEnd);
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onEnd);
+  };
 }
 
 function showGallery() {
@@ -551,31 +612,34 @@ function drawBlackboard(ctx, cw, ch) {
   const prefs = getPrefs();
   const rows = [
     { lbl:'工事名', val: getName() },
-    { lbl:'工　種', val: getProc() },
     prefs.contractor ? { lbl:'施工者', val: prefs.contractor } : null,
     { lbl:'撮影日', val: todayStr() },
   ].filter(Boolean);
 
-  const bw   = Math.round(cw * 0.52);
-  const rowH = Math.round(ch * 0.060);
-  const emH  = Math.round(ch * 0.090);
-  const bh   = rowH * rows.length + emH;
-  const bx   = Math.round(cw * 0.015);
-  const by   = ch - bh - Math.round(ch * 0.015);
-  const lw   = Math.round(bw * 0.27);
-  const fs   = Math.round(rowH * 0.50);
-  const brd  = Math.max(2, Math.round(cw * 0.002));
+  // 3:4 サイズ計算
+  const bw  = Math.round(cw * 0.40);
+  const bh  = Math.round(bw * 4 / 3);
+  const bx  = bbPos.yFrac !== null ? Math.round(cw * bbPos.xFrac) : Math.round(cw * 0.015);
+  const by  = bbPos.yFrac !== null ? Math.round(ch * bbPos.yFrac) : ch - bh - Math.round(ch * 0.015);
+  const rowH = Math.round(bh * 0.17);
+  const procH = bh - rowH * rows.length;
+  const lw  = Math.round(bw * 0.28);
+  const fs  = Math.round(rowH * 0.48);
+  const brd = Math.max(2, Math.round(cw * 0.002));
 
+  // 背景
   ctx.fillStyle = '#1A5C1A';
   ctx.fillRect(bx, by, bw, bh);
 
-  ctx.strokeStyle = '#fff'; ctx.lineWidth = brd*2;
-  ctx.strokeRect(bx+brd, by+brd, bw-brd*2, bh-brd*2);
+  // 外枠
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = brd * 2;
+  ctx.strokeRect(bx + brd, by + brd, bw - brd*2, bh - brd*2);
 
+  // ヘッダー行
   ctx.textBaseline = 'middle';
   rows.forEach((row, i) => {
-    const ry = by + rowH*i;
-    if (i>0) {
+    const ry = by + rowH * i;
+    if (i > 0) {
       ctx.strokeStyle='#fff'; ctx.lineWidth=brd;
       ctx.beginPath(); ctx.moveTo(bx,ry); ctx.lineTo(bx+bw,ry); ctx.stroke();
     }
@@ -594,9 +658,28 @@ function drawBlackboard(ctx, cw, ch) {
     ctx.fillText(val, bx+lw+fs*0.2, ry+rowH/2);
   });
 
-  const ey = by+rowH*rows.length;
+  // 工種エリアの区切り線
+  const procY = by + rowH * rows.length;
   ctx.strokeStyle='#fff'; ctx.lineWidth=brd;
-  ctx.beginPath(); ctx.moveTo(bx,ey); ctx.lineTo(bx+bw,ey); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(bx,procY); ctx.lineTo(bx+bw,procY); ctx.stroke();
+
+  // 工種テキスト（大きく中央表示）
+  const proc = getProc();
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  let procFs = Math.round(procH * 0.30);
+  ctx.font=`bold ${procFs}px Meiryo,sans-serif`;
+  // 長い場合は2行に分割
+  if (ctx.measureText(proc).width > bw * 0.88) {
+    procFs = Math.round(procH * 0.22);
+    ctx.font=`bold ${procFs}px Meiryo,sans-serif`;
+    const mid = Math.ceil(proc.length / 2);
+    ctx.fillStyle='#fff';
+    ctx.fillText(proc.slice(0, mid), bx+bw/2, procY + procH*0.35);
+    ctx.fillText(proc.slice(mid),    bx+bw/2, procY + procH*0.68);
+  } else {
+    ctx.fillStyle='#fff';
+    ctx.fillText(proc, bx+bw/2, procY + procH/2);
+  }
 }
 
 // ── Gallery ──────────────────────────────────────────────────────
