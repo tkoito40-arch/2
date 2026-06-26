@@ -249,13 +249,23 @@ body{display:flex;flex-direction:column;}
   <div class="hdr">
     <button class="hdr-btn" onclick="showHome()">← 戻る</button>
     <h1 id="projTitle"></h1>
-    <button class="hdr-btn" onclick="editProjectName()">✏ 編集</button>
+    <button class="hdr-btn" onclick="editProjectName()">✏</button>
+    <button class="hdr-btn" onclick="addGroup()">＋</button>
   </div>
   <div class="body">
-    <button class="btn-new" onclick="addGroup()">＋ 工事件名を追加</button>
     <div id="groupList"></div>
-    <div class="empty-msg hidden" id="groupEmpty">工事件名がありません<br>上のボタンから追加してください</div>
+    <div class="empty-msg hidden" id="groupEmpty">工事件名がありません</div>
   </div>
+</div>
+
+<!-- ████ GROUP DETAIL: 工種一覧 ████ -->
+<div class="screen hidden" id="sGroupDetail">
+  <div class="hdr">
+    <button class="hdr-btn" onclick="showProject()">← 戻る</button>
+    <h1 id="gdTitle"></h1>
+    <button class="hdr-btn" onclick="editGroupFromDetail()">✏</button>
+  </div>
+  <div class="body" id="gdBody"></div>
 </div>
 
 <!-- ████ GROUP EDIT: グループ編集 ████ -->
@@ -389,6 +399,8 @@ let _drag=null, _dragCleanup=null;
 let camName='', camProc='';
 let camFrom='home'; // where to go back from camera
 let curProjId=null; // currently open project
+let curGroupId=null; // currently open group (工事件名)
+let geFrom='project'; // where to return after group edit
 let geState=null;   // group edit state
 
 // ── DB ──────────────────────────────────────────────────────────
@@ -479,59 +491,75 @@ function renderProject(){
   if(!proj.groups.length){show('groupEmpty');return;}
   hide('groupEmpty');
   proj.groups.forEach(g=>{
-    const sec=document.createElement('div'); sec.className='group-section';
-    const hdr=document.createElement('div'); hdr.className='group-hdr';
-    const nm=document.createElement('span'); nm.className='group-hdr-name'; nm.textContent=g.name;
-    const editBtn=document.createElement('button'); editBtn.className='icon-btn'; editBtn.textContent='✏';
-    editBtn.onclick=()=>editGroup(g.id);
-    const delBtn=document.createElement('button'); delBtn.className='icon-btn'; delBtn.textContent='🗑';
-    delBtn.onclick=()=>deleteGroup(g.id);
-    hdr.appendChild(nm); hdr.appendChild(editBtn); hdr.appendChild(delBtn);
-    sec.appendChild(hdr);
-    g.procs.forEach(proc=>{
-      const procPhotos=photos.filter(p=>p.name===g.name&&p.proc===proc);
-      const hasPh=procPhotos.length>0;
+    const totalProcs=g.procs.length;
+    const doneProcs=g.procs.filter(proc=>photos.some(p=>p.name===g.name&&p.proc===proc)).length;
+    const totalPh=photos.filter(p=>p.name===g.name).length;
+    const card=document.createElement('div'); card.className='proj-card';
+    const info=document.createElement('div'); info.className='proj-info';
+    info.innerHTML=`<div class="proj-name">${g.name}</div>
+      <div class="proj-sub">${totalProcs}工種・<span style="color:#43A047">${doneProcs}種類撮影済</span>・${totalPh}枚</div>`;
+    info.onclick=()=>openGroup(g.id);
+    const editBtn=document.createElement('button'); editBtn.className='proj-del'; editBtn.textContent='✏';
+    editBtn.onclick=e=>{e.stopPropagation();editGroup(g.id,'project');};
+    const delBtn=document.createElement('button'); delBtn.className='proj-del'; delBtn.textContent='🗑';
+    delBtn.onclick=e=>{e.stopPropagation();deleteGroup(g.id);};
+    const arrow=document.createElement('div'); arrow.className='proj-arrow'; arrow.textContent='›';
+    arrow.onclick=()=>openGroup(g.id);
+    card.appendChild(info); card.appendChild(editBtn); card.appendChild(delBtn); card.appendChild(arrow);
+    list.appendChild(card);
+  });
+}
 
-      const row=document.createElement('div'); row.className='proc-row';
+function openGroup(groupId){
+  curGroupId=groupId; renderGroupDetail();
+  hide('sProject'); show('sGroupDetail');
+}
 
-      // top line: dot + name + count + shoot button
-      const top=document.createElement('div'); top.className='proc-row-top';
-      const dot=document.createElement('div');
-      dot.className='proc-dot'+(hasPh?' done':'');
-      const nm2=document.createElement('span'); nm2.className='proc-name'; nm2.textContent=proc;
-      const btn=document.createElement('button'); btn.className='shoot-btn'; btn.textContent='📷 撮影';
-      btn.onclick=()=>shootWith(g.name,proc);
-      top.appendChild(dot); top.appendChild(nm2);
-      if(hasPh){
-        const cnt=document.createElement('span');
-        cnt.className='proc-cnt'; cnt.textContent=`✓ ${procPhotos.length}枚`;
-        top.appendChild(cnt);
+function showProject(){
+  hide('sGroupDetail'); hide('sGroupEdit'); renderProject(); show('sProject');
+}
+
+function renderGroupDetail(){
+  const proj=getProjects().find(p=>p.id===curProjId);
+  const g=proj&&proj.groups.find(g=>g.id===curGroupId);
+  if(!proj||!g) return;
+  document.getElementById('gdTitle').textContent=g.name;
+  const body=document.getElementById('gdBody'); body.innerHTML='';
+  g.procs.forEach(proc=>{
+    const procPhotos=photos.filter(p=>p.name===g.name&&p.proc===proc);
+    const hasPh=procPhotos.length>0;
+    const row=document.createElement('div'); row.className='proc-row';
+    const top=document.createElement('div'); top.className='proc-row-top';
+    const dot=document.createElement('div'); dot.className='proc-dot'+(hasPh?' done':'');
+    const nm=document.createElement('span'); nm.className='proc-name'; nm.textContent=proc;
+    const btn=document.createElement('button'); btn.className='shoot-btn'; btn.textContent='📷 撮影';
+    btn.onclick=()=>shootWith(g.name,proc);
+    top.appendChild(dot); top.appendChild(nm);
+    if(hasPh){
+      const cnt=document.createElement('span'); cnt.className='proc-cnt';
+      cnt.textContent=`✓ ${procPhotos.length}枚`;
+      top.appendChild(cnt);
+    }
+    top.appendChild(btn);
+    row.appendChild(top);
+    if(hasPh){
+      const MAX=5;
+      const thumbRow=document.createElement('div'); thumbRow.className='proc-thumbs';
+      procPhotos.slice(0,MAX).forEach((ph,i)=>{
+        const img=document.createElement('img'); img.className='proc-thumb';
+        img.src=ph.dataUrl; img.loading='lazy';
+        img.onclick=e=>{e.stopPropagation();showLightbox(procPhotos,i,proc);};
+        thumbRow.appendChild(img);
+      });
+      if(procPhotos.length>MAX){
+        const more=document.createElement('div'); more.className='proc-thumb-more';
+        more.textContent=`+${procPhotos.length-MAX}`;
+        more.onclick=()=>showLightbox(procPhotos,MAX,proc);
+        thumbRow.appendChild(more);
       }
-      top.appendChild(btn);
-      row.appendChild(top);
-
-      // thumbnail row (max 5 thumbs + "+N more")
-      if(hasPh){
-        const MAX=5;
-        const thumbRow=document.createElement('div'); thumbRow.className='proc-thumbs';
-        const show2=procPhotos.slice(0,MAX);
-        show2.forEach((ph,i)=>{
-          const img=document.createElement('img'); img.className='proc-thumb';
-          img.src=ph.dataUrl; img.loading='lazy';
-          img.onclick=e=>{e.stopPropagation();showLightbox(procPhotos,i,proc);};
-          thumbRow.appendChild(img);
-        });
-        if(procPhotos.length>MAX){
-          const more=document.createElement('div'); more.className='proc-thumb-more';
-          more.textContent=`+${procPhotos.length-MAX}`;
-          more.onclick=()=>showLightbox(procPhotos,MAX,proc);
-          thumbRow.appendChild(more);
-        }
-        row.appendChild(thumbRow);
-      }
-      sec.appendChild(row);
-    });
-    list.appendChild(sec);
+      row.appendChild(thumbRow);
+    }
+    body.appendChild(row);
   });
 }
 
@@ -548,27 +576,33 @@ function editProjectName(){
 
 function showHome(){
   stopCam();
-  hide('sProject'); hide('sGroupEdit'); hide('sCam'); hide('sGal'); show('sHome');
+  hide('sProject'); hide('sGroupDetail'); hide('sGroupEdit'); hide('sCam'); hide('sGal'); show('sHome');
   renderProjects();
 }
 
 // ── GROUP EDIT ───────────────────────────────────────────────────
 function addGroup(){
+  geFrom='project';
   geState={projId:curProjId, groupId:null, procs:[]};
   document.getElementById('groupNameInp').value='';
   document.getElementById('geTitle').textContent='工事件名を追加';
   renderProcEditList();
-  hide('sProject'); show('sGroupEdit');
+  hide('sProject'); hide('sGroupDetail'); show('sGroupEdit');
 }
 
-function editGroup(groupId){
+function editGroup(groupId, from){
+  geFrom=from||'groupDetail';
   const proj=getProjects().find(p=>p.id===curProjId);
   const g=proj.groups.find(g=>g.id===groupId);
   geState={projId:curProjId, groupId, procs:[...g.procs]};
   document.getElementById('groupNameInp').value=g.name;
   document.getElementById('geTitle').textContent='工事件名を編集';
   renderProcEditList();
-  hide('sProject'); show('sGroupEdit');
+  hide('sProject'); hide('sGroupDetail'); show('sGroupEdit');
+}
+
+function editGroupFromDetail(){
+  if(curGroupId) editGroup(curGroupId,'groupDetail');
 }
 
 function deleteGroup(groupId){
@@ -673,36 +707,44 @@ function saveGroup(){
     proj.groups.push({id:uid(), name, procs:geState.procs});
   }
   saveProjects(projs); toast('💾 保存しました');
-  hide('sGroupEdit'); show('sProject'); renderProject();
+  hide('sGroupEdit');
+  if(geFrom==='groupDetail'&&geState.groupId){
+    curGroupId=geState.groupId; renderGroupDetail(); show('sGroupDetail');
+  } else {
+    renderProject(); show('sProject');
+  }
 }
 
 function cancelGroupEdit(){
-  hide('sGroupEdit'); show('sProject');
+  hide('sGroupEdit');
+  if(geFrom==='groupDetail') show('sGroupDetail');
+  else show('sProject');
 }
 
 // ── CAMERA ──────────────────────────────────────────────────────
 function shootWith(name, proc){
-  camName=name; camProc=proc; camFrom='project';
-  hide('sHome'); hide('sProject'); hide('sGroupEdit'); hide('sGal'); show('sCam');
+  camName=name; camProc=proc; camFrom='groupDetail';
+  hide('sHome'); hide('sProject'); hide('sGroupDetail'); hide('sGroupEdit'); hide('sGal'); show('sCam');
   updateOverlay(); initDrag(); startCam();
 }
 
 function backFromCam(){
-  stopCam();
-  hide('sCam');
-  if(camFrom==='project'){renderProject();show('sProject');}
+  stopCam(); hide('sCam');
+  if(camFrom==='groupDetail'){renderGroupDetail();show('sGroupDetail');}
+  else if(camFrom==='project'){renderProject();show('sProject');}
   else show('sHome');
 }
 
 function showGallery(from){
   camFrom=from||'home'; stopCam();
-  hide('sHome');hide('sProject');hide('sGroupEdit');hide('sCam');show('sGal');
+  hide('sHome');hide('sProject');hide('sGroupDetail');hide('sGroupEdit');hide('sCam');show('sGal');
   renderGallery();
 }
 
 function backFromGallery(){
   hide('sGal');
   if(camFrom==='cam'){show('sCam');startCam();}
+  else if(camFrom==='groupDetail'){show('sGroupDetail');}
   else if(camFrom==='project'){show('sProject');}
   else show('sHome');
 }
