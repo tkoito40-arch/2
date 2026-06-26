@@ -434,7 +434,21 @@ body{display:flex;flex-direction:column;}
       <input type="text" id="contractorInp" placeholder="例：○○工業株式会社">
     </div>
     <button class="modal-btn modal-save" onclick="saveSettings()">保存</button>
+    <button class="modal-btn" style="background:#2E3A4A;color:#42A5F5;border:1px solid #42A5F5"
+      onclick="closeSettings();openTemplates()">📋 工種テンプレートを編集</button>
     <button class="modal-btn modal-cancel" onclick="closeSettings()">キャンセル</button>
+  </div>
+</div>
+
+<!-- Templates Screen -->
+<div class="screen hidden" id="sTemplates">
+  <div class="hdr">
+    <button class="hdr-btn" onclick="closeTemplates()">← 戻る</button>
+    <h1>工種テンプレート編集</h1>
+  </div>
+  <div class="body">
+    <div class="hint" style="color:#666;font-size:13px">工事種別を選択したときに自動入力される工種リストを編集できます。</div>
+    <div id="tplList"></div>
   </div>
 </div>
 
@@ -466,6 +480,7 @@ let curGroupId=null; // currently open group (工事種別)
 let wtFrom='project'; // where to return from sWorkType
 let geFrom='project'; // where to return after group edit
 let geState=null;   // group edit state
+let tplEditIdx=null; // null=通常, 0-3=テンプレート編集中
 
 // ── DB ──────────────────────────────────────────────────────────
 function openDB(){
@@ -483,6 +498,8 @@ const dbGetAll=()=>new Promise(ok=>{const r=db.transaction('photos','readonly').
 // ── Storage ─────────────────────────────────────────────────────
 const getPrefs=()=>JSON.parse(localStorage.getItem('bbcam_p')||'{}');
 const setPrefs=p=>localStorage.setItem('bbcam_p',JSON.stringify(p));
+const getCustomPresets=()=>JSON.parse(localStorage.getItem('bbcam_tpl_presets')||'null')||PRESETS.map(p=>({name:p.name,procs:[...p.procs]}));
+const saveCustomPresets=p=>localStorage.setItem('bbcam_tpl_presets',JSON.stringify(p));
 const getProjects=()=>JSON.parse(localStorage.getItem('bbcam_proj')||'[]');
 const saveProjects=p=>localStorage.setItem('bbcam_proj',JSON.stringify(p));
 
@@ -620,7 +637,7 @@ function backFromWorkType(){
 }
 
 function addWorkType(presetIdx){
-  const preset=PRESETS[presetIdx];
+  const preset=getCustomPresets()[presetIdx];
   const projs=getProjects();
   const proj=projs.find(p=>p.id===curProjId); if(!proj) return;
   const newGroup={id:uid(), name:preset.name, procs:[...preset.procs]};
@@ -697,7 +714,7 @@ function editProjectName(){
 
 function showHome(){
   stopCam();
-  hide('sProject'); hide('sWorkType'); hide('sGroupDetail'); hide('sGroupEdit'); hide('sCam'); hide('sGal'); show('sHome');
+  hide('sProject'); hide('sWorkType'); hide('sGroupDetail'); hide('sGroupEdit'); hide('sTemplates'); hide('sCam'); hide('sGal'); show('sHome');
   renderProjects();
 }
 
@@ -735,9 +752,10 @@ function deleteGroup(groupId){
 }
 
 function loadPreset(idx){
-  geState.procs=[...PRESETS[idx].procs];
+  const p=getCustomPresets()[idx];
+  geState.procs=[...p.procs];
   renderProcEditList();
-  toast(`${PRESETS[idx].name}の工種を読み込みました`);
+  toast(`${p.name}の工種を読み込みました`);
 }
 
 function renderProcEditList(){
@@ -816,6 +834,18 @@ function addProcItem(){
 }
 
 function saveGroup(){
+  if(tplEditIdx!==null){
+    // テンプレートモード
+    if(!geState.procs.length){toast('工種を1つ以上追加してください');return;}
+    const presets=getCustomPresets();
+    presets[tplEditIdx].procs=geState.procs;
+    saveCustomPresets(presets);
+    tplEditIdx=null;
+    document.getElementById('groupNameInp').readOnly=false;
+    toast('💾 テンプレートを保存しました');
+    hide('sGroupEdit'); renderTemplates(); show('sTemplates');
+    return;
+  }
   const name=document.getElementById('groupNameInp').value.trim();
   if(!name){toast('工事件名を入力してください');return;}
   if(!geState.procs.length){toast('工種を1つ以上追加してください');return;}
@@ -837,9 +867,12 @@ function saveGroup(){
 }
 
 function cancelGroupEdit(){
+  document.getElementById('groupNameInp').readOnly=false;
+  tplEditIdx=null;
   hide('sGroupEdit');
-  if(geFrom==='groupDetail') show('sGroupDetail');
-  else show('sProject');
+  if(geFrom==='template'){show('sTemplates');}
+  else if(geFrom==='groupDetail'){show('sGroupDetail');}
+  else{show('sProject');}
 }
 
 // ── CAMERA ──────────────────────────────────────────────────────
@@ -1102,6 +1135,42 @@ function updateLightbox(){
 }
 function closeLightbox(){document.getElementById('lightbox').classList.add('hidden');}
 function lbNav(dir){lbIdx=Math.max(0,Math.min(lbPhotos.length-1,lbIdx+dir));updateLightbox();}
+
+// ── TEMPLATES ────────────────────────────────────────────────────
+function openTemplates(){
+  hide('sHome'); show('sTemplates'); renderTemplates();
+}
+
+function closeTemplates(){
+  hide('sTemplates'); show('sHome');
+}
+
+function renderTemplates(){
+  const presets=getCustomPresets();
+  const list=document.getElementById('tplList'); list.innerHTML='';
+  presets.forEach((p,i)=>{
+    const card=document.createElement('div'); card.className='proj-card'; card.style.cursor='pointer';
+    const info=document.createElement('div'); info.className='proj-info';
+    info.innerHTML=`<div class="proj-name">${p.name}</div><div class="proj-sub">${p.procs.length}工種</div>`;
+    const arrow=document.createElement('div'); arrow.className='proj-arrow'; arrow.textContent='›';
+    const tap=()=>openTemplateEdit(i);
+    info.onclick=tap; arrow.onclick=tap; card.onclick=tap;
+    card.appendChild(info); card.appendChild(arrow);
+    list.appendChild(card);
+  });
+}
+
+function openTemplateEdit(idx){
+  tplEditIdx=idx;
+  geFrom='template';
+  const p=getCustomPresets()[idx];
+  geState={projId:null, groupId:null, procs:[...p.procs]};
+  document.getElementById('groupNameInp').value=p.name;
+  document.getElementById('groupNameInp').readOnly=true;
+  document.getElementById('geTitle').textContent='テンプレートを編集';
+  renderProcEditList();
+  hide('sTemplates'); show('sGroupEdit');
+}
 
 // ── SETTINGS ─────────────────────────────────────────────────────
 function openSettings(){document.getElementById('contractorInp').value=getPrefs().contractor||'';show('settingsModal');}
