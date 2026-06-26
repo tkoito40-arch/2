@@ -212,6 +212,16 @@ body{display:flex;flex-direction:column;}
   }
 }
 
+/* ── EXPORT BAR ── */
+.export-bar{display:flex;gap:8px;padding:10px 14px max(env(safe-area-inset-bottom),10px);
+  background:#111;border-top:1px solid #1a1a1a;flex-shrink:0;}
+.export-btn{flex:1;padding:11px 4px;border:none;border-radius:8px;
+  font-size:12px;font-family:inherit;cursor:pointer;font-weight:700;white-space:nowrap;}
+.export-btn-pdf{background:#1565C0;color:#fff;}
+.export-btn-csv{background:#2E7D32;color:#fff;}
+.export-btn-share{background:#37474F;color:#fff;}
+.export-btn:active{opacity:.7;}
+
 /* ── GALLERY ── */
 .gal-hdr{display:flex;align-items:center;gap:8px;
   padding:max(env(safe-area-inset-top),12px) 14px 10px;
@@ -330,6 +340,11 @@ body{display:flex;flex-direction:column;}
     <button class="hdr-btn" onclick="editGroupFromDetail()">✏</button>
   </div>
   <div class="body" id="gdBody"></div>
+  <div class="export-bar">
+    <button class="export-btn export-btn-pdf" onclick="exportGroupPDF()">📄 PDF出力</button>
+    <button class="export-btn export-btn-csv" onclick="exportGroupCSV()">📊 CSV出力</button>
+    <button class="export-btn export-btn-share" onclick="shareGroupPhotos()">📤 共有</button>
+  </div>
 </div>
 
 <!-- ████ GROUP EDIT: グループ編集 ████ -->
@@ -765,6 +780,175 @@ function editGroup(groupId, from){
 
 function editGroupFromDetail(){
   if(curGroupId) editGroup(curGroupId,'groupDetail');
+}
+
+// ── EXPORT ───────────────────────────────────────────────────────
+function _getExportData(){
+  const proj=getProjects().find(p=>p.id===curProjId);
+  const g=proj&&proj.groups.find(g=>g.id===curGroupId);
+  if(!proj||!g) return null;
+  const allPhotos=[];
+  g.procs.forEach(proc=>{
+    photos.filter(p=>(p.groupId?p.groupId===g.id:p.name===g.name)&&p.proc===proc)
+      .forEach(ph=>allPhotos.push({ph,proc}));
+  });
+  return {proj,g,allPhotos};
+}
+
+function _resizeForPDF(dataUrl){
+  return new Promise(ok=>{
+    const img=new Image();
+    img.onload=()=>{
+      const maxW=800;
+      let w=img.width,h=img.height;
+      if(w>maxW){h=Math.round(h*maxW/w);w=maxW;}
+      const c=document.createElement('canvas');
+      c.width=w;c.height=h;
+      c.getContext('2d').drawImage(img,0,0,w,h);
+      ok(c.toDataURL('image/jpeg',0.80));
+    };
+    img.src=dataUrl;
+  });
+}
+
+async function exportGroupPDF(){
+  const d=_getExportData(); if(!d) return;
+  const {proj,g,allPhotos}=d;
+  if(!allPhotos.length){toast('写真がありません');return;}
+
+  // iOSのポップアップブロック対策：ユーザーアクション内で先に開く
+  const win=window.open('','_blank');
+  if(!win){toast('ポップアップをブロックされています');return;}
+  win.document.write('<!DOCTYPE html><html><body style="font-family:sans-serif;padding:20px">PDF作成中...</body></html>');
+
+  showLoader('PDF作成中...');
+  try{
+    const resized=await Promise.all(allPhotos.map(({ph,proc})=>
+      _resizeForPDF(ph.dataUrl).then(src=>({src,proc}))));
+
+    const projName=proj.name;
+    const grpName=g.name;
+    const dateStr=proj.date?proj.date.replace(/(\d{4})-(\d{2})-(\d{2})/,'$1年$2月$3日'):'';
+    const meta=[dateStr,proj.location,proj.contractor].filter(Boolean).join('　／　');
+
+    const pages=[];
+    for(let i=0;i<resized.length;i+=3) pages.push(resized.slice(i,i+3));
+
+    const pageHtml=pages.map((pg,pi)=>`
+<div class="page">
+  ${pi===0?`<div class="pg-hdr"><strong>${projName}</strong>　${grpName}<br><span class="pg-sub">${meta}</span></div>`:'<div class="pg-hdr-cont"><strong>'+projName+'</strong>　'+grpName+'</div>'}
+  ${pg.map(({src,proc})=>`
+  <div class="row">
+    <div class="ph-col"><img src="${src}"></div>
+    <div class="lbl-col">
+      <div class="proc-head">${proc}</div>
+      <div class="rule"></div>
+      ${Array(8).fill('<div class="dline"></div>').join('')}
+    </div>
+  </div>`).join('')}
+  <div class="pgnum">${pi+1} / ${pages.length}</div>
+</div>`).join('');
+
+    const html=`<!DOCTYPE html>
+<html lang="ja"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${projName}　${grpName}</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Meiryo','Hiragino Sans',sans-serif;background:#e8e8e8;}
+.toolbar{background:#111;color:#fff;padding:10px 14px;display:flex;gap:10px;align-items:center;position:sticky;top:0;z-index:10;}
+.toolbar span{flex:1;font-size:14px;font-weight:bold;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.tbtn{padding:8px 14px;font-size:14px;cursor:pointer;border:none;border-radius:6px;background:#1565C0;color:#fff;font-weight:bold;white-space:nowrap;}
+.tbtn.cls{background:#555;}
+.page{width:210mm;min-height:257mm;background:#fff;margin:6mm auto;padding:6mm 6mm 10mm;position:relative;box-shadow:0 2px 8px rgba(0,0,0,.25);}
+.pg-hdr{border-bottom:2.5px solid #000;padding-bottom:2mm;margin-bottom:3mm;font-size:13pt;}
+.pg-hdr-cont{border-bottom:1px solid #888;padding-bottom:1.5mm;margin-bottom:3mm;font-size:11pt;}
+.pg-sub{font-size:9pt;color:#555;}
+.row{display:flex;height:82mm;border-bottom:1px solid #ddd;margin-bottom:2.5mm;padding-bottom:2.5mm;}
+.row:last-of-type{border-bottom:none;margin-bottom:0;padding-bottom:0;}
+.ph-col{width:130mm;flex-shrink:0;padding-right:4mm;}
+.ph-col img{width:100%;height:78mm;object-fit:cover;display:block;border:0.3mm solid #ccc;}
+.lbl-col{flex:1;}
+.proc-head{font-size:12pt;font-weight:bold;padding-bottom:2mm;}
+.rule{border-bottom:2.5px solid #000;margin-bottom:3mm;}
+.dline{border-bottom:1px dotted #bbb;height:8mm;}
+.pgnum{position:absolute;bottom:3mm;right:6mm;font-size:8pt;color:#aaa;}
+@page{size:A4 portrait;margin:8mm;}
+@media print{
+  body{background:#fff;}
+  .toolbar{display:none!important;}
+  .page{box-shadow:none;margin:0;width:100%;padding:4mm 4mm 8mm;page-break-after:always;break-after:page;}
+  .page:last-child{page-break-after:auto;break-after:auto;}
+}
+</style></head>
+<body>
+<div class="toolbar">
+  <span>${projName}　${grpName}（${allPhotos.length}枚）</span>
+  <button class="tbtn" onclick="window.print()">🖨 印刷 / PDF保存</button>
+  <button class="tbtn cls" onclick="window.close()">✕</button>
+</div>
+${pageHtml}
+</body></html>`;
+
+    win.document.open();
+    win.document.write(html);
+    win.document.close();
+  } catch(e){
+    win.close();
+    toast('PDF作成に失敗しました: '+e.message);
+  } finally {
+    hideLoader();
+  }
+}
+
+function exportGroupCSV(){
+  const d=_getExportData(); if(!d) return;
+  const {proj,g,allPhotos}=d;
+  if(!allPhotos.length){toast('写真がありません');return;}
+
+  const rows=[['案件名','場所','施工業者','工事種別','工種','撮影日']];
+  allPhotos.forEach(({ph,proc})=>{
+    rows.push([proj.name,proj.location||'',proj.contractor||'',g.name,proc,ph.date||'']);
+  });
+
+  const csv='﻿'+rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\r\n');
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url; a.download=`${proj.name}_${g.name}.csv`;
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a); URL.revokeObjectURL(url);
+  toast('CSVをダウンロードしました');
+}
+
+async function shareGroupPhotos(){
+  const d=_getExportData(); if(!d) return;
+  const {proj,g,allPhotos}=d;
+  if(!allPhotos.length){toast('写真がありません');return;}
+  if(!navigator.share){toast('この端末では共有機能を利用できません');return;}
+
+  showLoader('共有準備中...');
+  try{
+    const MAX=20;
+    const files=await Promise.all(allPhotos.slice(0,MAX).map(({ph,proc},i)=>{
+      const bin=atob(ph.dataUrl.split(',')[1]);
+      const buf=new Uint8Array(bin.length);
+      for(let j=0;j<bin.length;j++) buf[j]=bin.charCodeAt(j);
+      const name=`${String(i+1).padStart(2,'0')}_${proc.replace(/[\\/:*?"<>|]/g,'_')}.jpg`;
+      return new File([buf],name,{type:'image/jpeg'});
+    }));
+    const title=`${proj.name}　${g.name}`;
+    const text=`${proj.name}\n${g.name}\n写真${allPhotos.length}枚`;
+    if(navigator.canShare&&navigator.canShare({files})){
+      await navigator.share({title,text,files});
+    } else {
+      await navigator.share({title,text});
+    }
+  } catch(e){
+    if(e.name!=='AbortError') toast('共有に失敗しました');
+  } finally {
+    hideLoader();
+  }
 }
 
 function deleteGroup(groupId){
