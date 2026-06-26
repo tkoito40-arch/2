@@ -144,8 +144,9 @@ body{display:flex;flex-direction:column;}
 .bb-table .bl{width:50px;white-space:nowrap;}
 .bb-table .bv{font-weight:700;}
 .bb-proc-area{flex:1;display:flex;align-items:center;justify-content:center;
-  color:#fff;font-weight:700;padding:5px;text-align:center;
-  border-top:1px solid #fff;word-break:break-all;line-height:1.3;font-size:13px;}
+  color:#fff;font-weight:700;padding:4px 3px;text-align:center;
+  border-top:1px solid #fff;word-break:break-all;overflow-wrap:break-word;
+  overflow:hidden;line-height:1.25;font-size:13px;}
 
 /* ── CAMERA SCREEN ── */
 .cam-top{display:flex;align-items:center;gap:8px;
@@ -159,7 +160,7 @@ body{display:flex;flex-direction:column;}
 .bb-ov{position:absolute;bottom:10px;left:10px;width:48%;z-index:5;
   aspect-ratio:4/3;background:#1A5C1A;border:2px solid #fff;border-radius:2px;
   opacity:.92;cursor:grab;touch-action:none;display:flex;flex-direction:column;
-  user-select:none;-webkit-user-select:none;}
+  user-select:none;-webkit-user-select:none;overflow:hidden;}
 .bb-ov:active{cursor:grabbing;}
 .bb-ov .bb-table{flex-shrink:0;}
 .bb-ov .bb-table td{font-size:9px;padding:2px 4px;}
@@ -929,7 +930,9 @@ function updateOverlay(){
   document.getElementById('cName').textContent=n||'（工事名なし）';
   document.getElementById('cProc').textContent=p;
   const bw=document.getElementById('bbOv').offsetWidth||160;
-  document.getElementById('ov_p').style.fontSize=Math.max(10,Math.round(bw*0.11))+'px';
+  const pLen=p.length;
+  const pFs=pLen<=5?0.13:pLen<=8?0.11:pLen<=12?0.09:pLen<=18?0.075:0.062;
+  document.getElementById('ov_p').style.fontSize=Math.max(8,Math.round(bw*pFs))+'px';
 }
 
 function updateGalCount(){
@@ -1114,30 +1117,51 @@ function drawBlackboard(ctx,cw,ch){
   ctx.beginPath(); ctx.moveTo(bx,curY); ctx.lineTo(bx+bw,curY); ctx.stroke();
   const procY=curY;
 
-  // ── 工種テキスト（最大優先・自動サイズ）──
+  // ── 工種テキスト（1→2→3行 自動分割・縮小）──
   ctx.fillStyle='#fff'; ctx.textAlign='center'; ctx.textBaseline='middle';
   const maxProcW=bw*0.90;
+  const sepChars=['・','。','、',' '];
 
-  // 1行で収まるか試す
-  let pFs=Math.round(procH*0.38);
-  ctx.font=`bold ${pFs}px Meiryo,sans-serif`;
-  if(ctx.measureText(proc).width<=maxProcW){
-    ctx.fillText(proc,bx+bw/2,procY+procH/2);
-  } else {
-    // 2行で収まるか試す
-    const chars=Array.from(proc);
-    let sp=Math.ceil(chars.length/2);
-    pFs=Math.round(procH*0.28);
-    ctx.font=`bold ${pFs}px Meiryo,sans-serif`;
-    // splitポイントを右に動かして両行を均等に
-    while(sp<chars.length-1&&ctx.measureText(chars.slice(0,sp).join('')).width<ctx.measureText(chars.slice(sp).join('')).width)sp++;
-    let l1=chars.slice(0,sp).join(''), l2=chars.slice(sp).join('');
-    // 2行でも溢れるなら縮小
-    while(pFs>10&&(ctx.measureText(l1).width>maxProcW||ctx.measureText(l2).width>maxProcW)){
-      pFs--; ctx.font=`bold ${pFs}px Meiryo,sans-serif`;
+  // テキストをn行に分割（区切り文字優先）
+  function splitProcLines(text,n){
+    if(n===1) return [text];
+    const chars=Array.from(text);
+    const len=chars.length;
+    const seps=chars.map((c,i)=>sepChars.includes(c)?i:-1).filter(i=>i>=0);
+    const lines=[];
+    let prev=0;
+    for(let seg=1;seg<n;seg++){
+      const target=Math.round(len*seg/n);
+      const near=seps.find(s=>s>=target-4&&s<=target+4&&s>prev);
+      const sp=near!==undefined?near+1:target;
+      lines.push(chars.slice(prev,sp).join(''));
+      prev=sp;
     }
-    ctx.fillText(l1,bx+bw/2,procY+procH*0.33);
-    ctx.fillText(l2,bx+bw/2,procY+procH*0.68);
+    lines.push(chars.slice(prev).join(''));
+    return lines.filter(l=>l);
+  }
+
+  // 1行→2行→3行の順で試し、収まる行数＋フォントサイズを決定
+  const initFs=[0.38,0.27,0.20]; // 各行数での初期倍率
+  let drawn=false;
+  for(let nL=1;nL<=3&&!drawn;nL++){
+    let pFs=Math.round(procH*initFs[nL-1]);
+    ctx.font=`bold ${pFs}px Meiryo,sans-serif`;
+    const lines=splitProcLines(proc,nL);
+    let maxW=Math.max(...lines.map(l=>ctx.measureText(l).width));
+    // 収まるまで縮小（最小8px）
+    while(maxW>maxProcW&&pFs>8){
+      pFs--; ctx.font=`bold ${pFs}px Meiryo,sans-serif`;
+      maxW=Math.max(...lines.map(l=>ctx.measureText(l).width));
+    }
+    // 最終行数(3)または収まった場合に描画
+    if(maxW<=maxProcW||nL===3){
+      lines.forEach((line,i)=>{
+        const yFrac=(i+0.5)/lines.length;
+        ctx.fillText(line,bx+bw/2,procY+procH*yFrac);
+      });
+      drawn=true;
+    }
   }
 
   // ── 施工業者欄 ───────────────────────────
