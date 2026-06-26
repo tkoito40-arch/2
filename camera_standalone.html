@@ -15,7 +15,7 @@
 html,body{height:100%;overflow:hidden;background:#000;color:#fff;
   font-family:'Meiryo UI',Meiryo,'Hiragino Sans',sans-serif;}
 body{display:flex;flex-direction:column;}
-.screen{flex:1;display:flex;flex-direction:column;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+.screen{flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden;overflow-y:auto;-webkit-overflow-scrolling:touch;}
 .hidden{display:none!important;}
 
 /* ── HEADER ── */
@@ -186,28 +186,29 @@ body{display:flex;flex-direction:column;}
 
 /* ── CAMERA: LANDSCAPE ── */
 @media (orientation: landscape) {
-  #sCam {flex-direction: row;}
+  #sCam {flex-direction: row; overflow: hidden;}
   #sCam .cam-top {
     flex-direction: column;
+    flex-shrink: 0;
     align-items: center;
     justify-content: flex-end;
-    width: max(calc(env(safe-area-inset-left) + 40px), 40px);
-    padding: 8px 0 16px max(env(safe-area-inset-left), 6px);
+    width: max(calc(env(safe-area-inset-left) + 44px), 44px);
+    padding: 8px 4px 12px max(env(safe-area-inset-left), 4px);
     border-bottom: none;
-    border-right: 1px solid #1a1a1a;
+    border-right: 1px solid #222;
     writing-mode: vertical-rl;
   }
   #sCam .cam-name, #sCam .cam-proc {display: none;}
   #sCam .cam-edit {font-size: 12px; transform: rotate(180deg);}
-  #sCam .viewfinder {height: auto;}
   #sCam .cam-bar {
     flex-direction: column;
+    flex-shrink: 0;
     align-items: center;
     justify-content: space-around;
-    padding: 12px max(env(safe-area-inset-right), 10px) 12px 6px;
-    border-top: none;
-    border-left: 1px solid #1a1a1a;
     width: max(calc(env(safe-area-inset-right) + 78px), 78px);
+    padding: 8px max(env(safe-area-inset-right), 8px) 8px 4px;
+    border-top: none;
+    border-left: 1px solid #222;
   }
 }
 
@@ -1312,10 +1313,19 @@ function hideLoader(){if(loaderEl){loaderEl.remove();loaderEl=null;}}
 
 init();
 
-window.addEventListener('resize', ()=>{
-  const sCam=document.getElementById('sCam');
-  if(sCam&&!sCam.classList.contains('hidden')) requestAnimationFrame(renderOverlayCanvas);
-});
+let _orientTimer;
+function _onOrientChange(resetPos){
+  clearTimeout(_orientTimer);
+  _orientTimer=setTimeout(()=>{
+    const sCam=document.getElementById('sCam');
+    if(sCam&&!sCam.classList.contains('hidden')){
+      if(resetPos) bbPos={xFrac:0.015,yFrac:null};
+      renderOverlayCanvas();
+    }
+  }, resetPos?300:100);
+}
+window.addEventListener('resize',()=>_onOrientChange(false));
+window.addEventListener('orientationchange',()=>_onOrientChange(true));
 </script>
 </body>
 </html>
