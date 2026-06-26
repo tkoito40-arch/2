@@ -101,6 +101,18 @@ body{display:flex;flex-direction:column;}
   font-size:12px;font-weight:700;color:#fff;z-index:2;max-width:65%;
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 
+/* ── WORK TYPE SELECT ── */
+.proj-meta{font-size:12px;color:#42A5F5;padding:2px 16px 8px;flex-shrink:0;line-height:1.7;}
+.wt-card{background:#151515;border:1px solid #222;border-radius:12px;padding:20px 18px;}
+.wt-card.wt-tap{cursor:pointer;}
+.wt-card.wt-tap:active{background:#1a2040;}
+.wt-name{font-size:18px;font-weight:700;}
+.wt-count{font-size:12px;color:#555;margin-top:4px;}
+.wt-region{display:flex;gap:10px;margin-top:14px;}
+.wt-region-btn{flex:1;padding:13px 8px;background:#1565C0;border:none;border-radius:8px;
+  color:#fff;font-size:15px;font-family:inherit;cursor:pointer;font-weight:700;}
+.wt-region-btn:active{background:#0D47A1;}
+
 /* ── GROUP EDIT ── */
 .preset-tabs{display:flex;gap:7px;flex-wrap:wrap;}
 .preset-tab{padding:7px 13px;background:#1a1a1a;border:1.5px solid #333;
@@ -250,11 +262,39 @@ body{display:flex;flex-direction:column;}
     <button class="hdr-btn" onclick="showHome()">← 戻る</button>
     <h1 id="projTitle"></h1>
     <button class="hdr-btn" onclick="editProjectName()">✏</button>
-    <button class="hdr-btn" onclick="addGroup()">＋</button>
+    <button class="hdr-btn" onclick="showWorkType('project')">＋</button>
   </div>
+  <div class="proj-meta" id="projMeta"></div>
   <div class="body">
     <div id="groupList"></div>
-    <div class="empty-msg hidden" id="groupEmpty">工事件名がありません</div>
+    <div class="empty-msg hidden" id="groupEmpty">工事種別がありません<br>右上の ＋ から追加してください</div>
+  </div>
+</div>
+
+<!-- ████ WORK TYPE: 工事種別選択 ████ -->
+<div class="screen hidden" id="sWorkType">
+  <div class="hdr">
+    <button class="hdr-btn" onclick="backFromWorkType()">← 戻る</button>
+    <h1>工事種別を選択</h1>
+  </div>
+  <div class="body">
+    <div class="sec-label">工事種別を選んでください</div>
+
+    <div class="wt-card">
+      <div class="wt-name">🔧 給水管工事</div>
+      <div class="wt-region">
+        <button class="wt-region-btn" onclick="addWorkType(0)">東京都</button>
+        <button class="wt-region-btn" onclick="addWorkType(1)">神奈川県</button>
+      </div>
+    </div>
+
+    <div class="wt-card wt-tap" onclick="addWorkType(2)">
+      <div class="wt-name">🚿 下水道工事</div>
+    </div>
+
+    <div class="wt-card wt-tap" onclick="addWorkType(3)">
+      <div class="wt-name">📦 桝交換</div>
+    </div>
   </div>
 </div>
 
@@ -276,8 +316,8 @@ body{display:flex;flex-direction:column;}
   </div>
   <div class="body">
     <div class="field">
-      <label>工事件名（黒板に表示される名前）</label>
-      <input type="text" id="groupNameInp" placeholder="例：○○県○○1丁目給水管工事">
+      <label>工事種別名（リスト表示用メモ）</label>
+      <input type="text" id="groupNameInp" placeholder="例：給水管工事（東京都）">
     </div>
     <div class="field">
       <label>テンプレートから一括読み込み</label>
@@ -420,8 +460,10 @@ let _drag=null, _dragCleanup=null;
 let camName='', camProc='';
 let editingProjId=null; // null=新規, id=編集中
 let camFrom='home'; // where to go back from camera
+let camGroupId=null; // groupId stored when shooting
 let curProjId=null; // currently open project
-let curGroupId=null; // currently open group (工事件名)
+let curGroupId=null; // currently open group (工事種別)
+let wtFrom='project'; // where to return from sWorkType
 let geFrom='project'; // where to return after group edit
 let geState=null;   // group edit state
 
@@ -512,13 +554,17 @@ function saveProjModal(){
     const p=projs.find(p=>p.id===editingProjId);
     if(p){p.name=name;p.date=date;p.location=location;}
     saveProjects(projs);
-    if(curProjId===editingProjId) document.getElementById('projTitle').textContent=name;
+    if(curProjId===editingProjId) renderProject();
     renderProjects(); toast('更新しました');
+    closeProjModal();
   } else {
-    projs.push({id:uid(),name,date,location,groups:[]});
-    saveProjects(projs); renderProjects(); toast('案件を作成しました');
+    const newId=uid();
+    projs.push({id:newId,name,date,location,groups:[]});
+    saveProjects(projs); renderProjects();
+    curProjId=newId;
+    closeProjModal();
+    showWorkType('new');
   }
-  closeProjModal();
 }
 
 function deleteProject(id){
@@ -536,13 +582,16 @@ function openProject(id){
 function renderProject(){
   const proj=getProjects().find(p=>p.id===curProjId); if(!proj) return;
   document.getElementById('projTitle').textContent=proj.name;
+  const dateStr=proj.date?proj.date.replace(/(\d{4})-(\d{2})-(\d{2})/,'$1年$2月$3日'):'';
+  const meta=[dateStr,proj.location].filter(Boolean).join('　／　');
+  document.getElementById('projMeta').textContent=meta;
   const list=document.getElementById('groupList'); list.innerHTML='';
   if(!proj.groups.length){show('groupEmpty');return;}
   hide('groupEmpty');
   proj.groups.forEach(g=>{
     const totalProcs=g.procs.length;
-    const doneProcs=g.procs.filter(proc=>photos.some(p=>p.name===g.name&&p.proc===proc)).length;
-    const totalPh=photos.filter(p=>p.name===g.name).length;
+    const doneProcs=g.procs.filter(proc=>photos.some(p=>(p.groupId?p.groupId===g.id:p.name===g.name)&&p.proc===proc)).length;
+    const totalPh=photos.filter(p=>p.groupId?p.groupId===g.id:p.name===g.name).length;
     const card=document.createElement('div'); card.className='proj-card';
     const info=document.createElement('div'); info.className='proj-info';
     info.innerHTML=`<div class="proj-name">${g.name}</div>
@@ -557,6 +606,30 @@ function renderProject(){
     card.appendChild(info); card.appendChild(editBtn); card.appendChild(delBtn); card.appendChild(arrow);
     list.appendChild(card);
   });
+}
+
+// ── WORK TYPE ────────────────────────────────────────────────────
+function showWorkType(from){
+  wtFrom=from||'project';
+  hide('sHome'); hide('sProject'); show('sWorkType');
+}
+
+function backFromWorkType(){
+  hide('sWorkType');
+  renderProject(); show('sProject');
+}
+
+function addWorkType(presetIdx){
+  const preset=PRESETS[presetIdx];
+  const projs=getProjects();
+  const proj=projs.find(p=>p.id===curProjId); if(!proj) return;
+  const newGroup={id:uid(), name:preset.name, procs:[...preset.procs]};
+  proj.groups.push(newGroup);
+  saveProjects(projs);
+  toast(`${preset.name}を追加しました`);
+  curGroupId=newGroup.id;
+  hide('sWorkType');
+  renderGroupDetail(); show('sGroupDetail');
 }
 
 function openGroup(groupId){
@@ -575,14 +648,14 @@ function renderGroupDetail(){
   document.getElementById('gdTitle').textContent=g.name;
   const body=document.getElementById('gdBody'); body.innerHTML='';
   g.procs.forEach(proc=>{
-    const procPhotos=photos.filter(p=>p.name===g.name&&p.proc===proc);
+    const procPhotos=photos.filter(p=>(p.groupId?p.groupId===g.id:p.name===g.name)&&p.proc===proc);
     const hasPh=procPhotos.length>0;
     const row=document.createElement('div'); row.className='proc-row';
     const top=document.createElement('div'); top.className='proc-row-top';
     const dot=document.createElement('div'); dot.className='proc-dot'+(hasPh?' done':'');
     const nm=document.createElement('span'); nm.className='proc-name'; nm.textContent=proc;
     const btn=document.createElement('button'); btn.className='shoot-btn'; btn.textContent='📷 撮影';
-    btn.onclick=()=>shootWith(g.name,proc);
+    btn.onclick=()=>shootWith(proj.name,proc);
     top.appendChild(dot); top.appendChild(nm);
     if(hasPh){
       const cnt=document.createElement('span'); cnt.className='proc-cnt';
@@ -624,7 +697,7 @@ function editProjectName(){
 
 function showHome(){
   stopCam();
-  hide('sProject'); hide('sGroupDetail'); hide('sGroupEdit'); hide('sCam'); hide('sGal'); show('sHome');
+  hide('sProject'); hide('sWorkType'); hide('sGroupDetail'); hide('sGroupEdit'); hide('sCam'); hide('sGal'); show('sHome');
   renderProjects();
 }
 
@@ -771,8 +844,9 @@ function cancelGroupEdit(){
 
 // ── CAMERA ──────────────────────────────────────────────────────
 function shootWith(name, proc){
-  camName=name; camProc=proc; camFrom='groupDetail';
-  hide('sHome'); hide('sProject'); hide('sGroupDetail'); hide('sGroupEdit'); hide('sGal'); show('sCam');
+  // name = proj.name が渡されるが、黒板には案件名を表示する
+  camName=name; camProc=proc; camGroupId=curGroupId; camFrom='groupDetail';
+  hide('sHome'); hide('sProject'); hide('sWorkType'); hide('sGroupDetail'); hide('sGroupEdit'); hide('sGal'); show('sCam');
   updateOverlay(); initDrag(); startCam();
 }
 
@@ -785,7 +859,7 @@ function backFromCam(){
 
 function showGallery(from){
   camFrom=from||'home'; stopCam();
-  hide('sHome');hide('sProject');hide('sGroupDetail');hide('sGroupEdit');hide('sCam');show('sGal');
+  hide('sHome');hide('sProject');hide('sWorkType');hide('sGroupDetail');hide('sGroupEdit');hide('sCam');show('sGal');
   renderGallery();
 }
 
@@ -893,7 +967,7 @@ async function onAlbumFile(e){
   hideLoader();
 }
 async function addPhoto(dataUrl){
-  const photo={id:uid(),dataUrl,proc:getProc(),name:getName(),date:todayStr()};
+  const photo={id:uid(),dataUrl,proc:getProc(),name:getName(),groupId:camGroupId,date:todayStr()};
   photos.push(photo);await dbPut(photo);updateGalCount();
   autoSave(photo);toast(`📷 保存しました（${photos.length}枚目）`);
 }
