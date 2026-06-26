@@ -61,12 +61,45 @@ body{display:flex;flex-direction:column;}
 .group-hdr-name{flex:1;font-size:14px;font-weight:700;color:#fff;}
 .icon-btn{background:transparent;border:none;color:#555;font-size:17px;cursor:pointer;padding:4px 8px;}
 .icon-btn:active{color:#fff;}
-.proc-row{display:flex;align-items:center;padding:9px 14px;border-top:1px solid #1a1a1a;gap:10px;}
-.proc-row:active{background:#111;}
+.proc-row{display:flex;flex-wrap:wrap;align-items:center;
+  padding:9px 14px;border-top:1px solid #1a1a1a;gap:6px;}
+.proc-row-top{display:flex;align-items:center;width:100%;gap:8px;}
+.proc-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;background:#333;transition:background .2s;}
+.proc-dot.done{background:#43A047;}
 .proc-name{flex:1;font-size:14px;color:#ccc;}
+.proc-cnt{font-size:11px;color:#43A047;font-weight:700;white-space:nowrap;}
 .shoot-btn{background:#1565C0;border:none;color:#fff;padding:6px 14px;border-radius:6px;
   font-size:13px;cursor:pointer;font-family:inherit;flex-shrink:0;}
 .shoot-btn:active{background:#0D47A1;}
+.proc-thumbs{display:flex;gap:4px;width:100%;flex-wrap:wrap;}
+.proc-thumb{width:52px;height:52px;object-fit:cover;border-radius:6px;
+  cursor:pointer;border:1.5px solid #333;flex-shrink:0;}
+.proc-thumb:active{opacity:.7;}
+.proc-thumb-more{width:52px;height:52px;border-radius:6px;background:#1a1a1a;
+  border:1.5px solid #333;display:flex;align-items:center;justify-content:center;
+  font-size:13px;font-weight:700;color:#888;cursor:pointer;flex-shrink:0;}
+
+/* ── LIGHTBOX ── */
+.lightbox{position:fixed;inset:0;z-index:500;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;}
+.lb-bg{position:absolute;inset:0;background:rgba(0,0,0,.93);}
+.lb-img{position:relative;max-width:100%;max-height:80vh;object-fit:contain;z-index:1;
+  display:block;}
+.lb-close{position:absolute;top:max(env(safe-area-inset-top),14px);right:14px;
+  background:rgba(0,0,0,.6);border:1.5px solid #555;color:#fff;
+  width:42px;height:42px;border-radius:50%;font-size:24px;cursor:pointer;z-index:2;
+  display:flex;align-items:center;justify-content:center;font-family:inherit;}
+.lb-bar{position:absolute;bottom:max(env(safe-area-inset-bottom),16px);left:0;right:0;
+  display:flex;align-items:center;justify-content:center;gap:20px;z-index:2;}
+.lb-nav-btn{background:rgba(0,0,0,.5);border:1.5px solid #555;color:#fff;
+  width:46px;height:46px;border-radius:50%;font-size:26px;cursor:pointer;font-family:inherit;
+  display:flex;align-items:center;justify-content:center;}
+.lb-nav-btn:disabled{opacity:.2;}
+.lb-count{color:#aaa;font-size:14px;min-width:52px;text-align:center;}
+.lb-proc{position:absolute;top:max(env(safe-area-inset-top),14px);left:14px;
+  background:rgba(21,101,192,.85);padding:5px 12px;border-radius:20px;
+  font-size:12px;font-weight:700;color:#fff;z-index:2;max-width:65%;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 
 /* ── GROUP EDIT ── */
 .preset-tabs{display:flex;gap:7px;flex-wrap:wrap;}
@@ -78,6 +111,11 @@ body{display:flex;flex-direction:column;}
   padding:9px 12px;gap:8px;}
 .proc-edit-name{flex:1;font-size:14px;color:#ccc;}
 .proc-del-btn{background:transparent;border:none;color:#555;font-size:16px;cursor:pointer;padding:2px 6px;}
+.proc-drag-handle{color:#444;font-size:20px;cursor:grab;padding:2px 10px 2px 4px;
+  touch-action:none;user-select:none;-webkit-user-select:none;flex-shrink:0;}
+.proc-edit-row.is-dragging{opacity:.4;background:#222;}
+.proc-edit-row.drag-over-top{border-top:2px solid #42A5F5;}
+.proc-edit-row.drag-over-bot{border-bottom:2px solid #42A5F5;}
 .add-proc-row{display:flex;gap:8px;}
 .add-proc-row input{flex:1;padding:10px 12px;background:#151515;border:1px solid #252525;
   border-radius:8px;color:#fff;font-size:14px;font-family:inherit;-webkit-appearance:none;}
@@ -214,9 +252,9 @@ body{display:flex;flex-direction:column;}
     <button class="hdr-btn" onclick="editProjectName()">✏ 編集</button>
   </div>
   <div class="body">
-    <button class="btn-new" onclick="addGroup()">＋ グループを追加</button>
+    <button class="btn-new" onclick="addGroup()">＋ 工事件名を追加</button>
     <div id="groupList"></div>
-    <div class="empty-msg hidden" id="groupEmpty">グループがありません<br>上のボタンから追加してください</div>
+    <div class="empty-msg hidden" id="groupEmpty">工事件名がありません<br>上のボタンから追加してください</div>
   </div>
 </div>
 
@@ -228,8 +266,8 @@ body{display:flex;flex-direction:column;}
   </div>
   <div class="body">
     <div class="field">
-      <label>グループ名</label>
-      <input type="text" id="groupNameInp" placeholder="例：水道工事用　下水道工事用">
+      <label>工事件名（黒板に表示される名前）</label>
+      <input type="text" id="groupNameInp" placeholder="例：○○県○○1丁目給水管工事">
     </div>
     <div class="field">
       <label>テンプレートから一括読み込み</label>
@@ -250,7 +288,7 @@ body{display:flex;flex-direction:column;}
         <button class="add-proc-btn" onclick="addProcItem()">＋ 追加</button>
       </div>
     </div>
-    <button class="btn-go" onclick="saveGroup()">💾 グループを保存</button>
+    <button class="btn-go" onclick="saveGroup()">💾 工事件名を保存</button>
   </div>
 </div>
 
@@ -300,6 +338,19 @@ body{display:flex;flex-direction:column;}
   <div id="galContent" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;"></div>
   <div class="gal-foot">
     <button class="del-btn" onclick="clearAll()">🗑 全て削除</button>
+  </div>
+</div>
+
+<!-- Lightbox -->
+<div class="lightbox hidden" id="lightbox">
+  <div class="lb-bg" onclick="closeLightbox()"></div>
+  <div class="lb-proc" id="lbProc"></div>
+  <img class="lb-img" id="lbImg" src="">
+  <button class="lb-close" onclick="closeLightbox()">✕</button>
+  <div class="lb-bar">
+    <button class="lb-nav-btn" id="lbPrev" onclick="lbNav(-1)">‹</button>
+    <span class="lb-count" id="lbCount"></span>
+    <button class="lb-nav-btn" id="lbNext" onclick="lbNav(1)">›</button>
   </div>
 </div>
 
@@ -438,11 +489,47 @@ function renderProject(){
     hdr.appendChild(nm); hdr.appendChild(editBtn); hdr.appendChild(delBtn);
     sec.appendChild(hdr);
     g.procs.forEach(proc=>{
+      const procPhotos=photos.filter(p=>p.name===g.name&&p.proc===proc);
+      const hasPh=procPhotos.length>0;
+
       const row=document.createElement('div'); row.className='proc-row';
+
+      // top line: dot + name + count + shoot button
+      const top=document.createElement('div'); top.className='proc-row-top';
+      const dot=document.createElement('div');
+      dot.className='proc-dot'+(hasPh?' done':'');
       const nm2=document.createElement('span'); nm2.className='proc-name'; nm2.textContent=proc;
       const btn=document.createElement('button'); btn.className='shoot-btn'; btn.textContent='📷 撮影';
-      btn.onclick=()=>shootWith(proj.name, proc);
-      row.appendChild(nm2); row.appendChild(btn); sec.appendChild(row);
+      btn.onclick=()=>shootWith(g.name,proc);
+      top.appendChild(dot); top.appendChild(nm2);
+      if(hasPh){
+        const cnt=document.createElement('span');
+        cnt.className='proc-cnt'; cnt.textContent=`✓ ${procPhotos.length}枚`;
+        top.appendChild(cnt);
+      }
+      top.appendChild(btn);
+      row.appendChild(top);
+
+      // thumbnail row (max 5 thumbs + "+N more")
+      if(hasPh){
+        const MAX=5;
+        const thumbRow=document.createElement('div'); thumbRow.className='proc-thumbs';
+        const show2=procPhotos.slice(0,MAX);
+        show2.forEach((ph,i)=>{
+          const img=document.createElement('img'); img.className='proc-thumb';
+          img.src=ph.dataUrl; img.loading='lazy';
+          img.onclick=e=>{e.stopPropagation();showLightbox(procPhotos,i,proc);};
+          thumbRow.appendChild(img);
+        });
+        if(procPhotos.length>MAX){
+          const more=document.createElement('div'); more.className='proc-thumb-more';
+          more.textContent=`+${procPhotos.length-MAX}`;
+          more.onclick=()=>showLightbox(procPhotos,MAX,proc);
+          thumbRow.appendChild(more);
+        }
+        row.appendChild(thumbRow);
+      }
+      sec.appendChild(row);
     });
     list.appendChild(sec);
   });
@@ -469,7 +556,7 @@ function showHome(){
 function addGroup(){
   geState={projId:curProjId, groupId:null, procs:[]};
   document.getElementById('groupNameInp').value='';
-  document.getElementById('geTitle').textContent='グループを追加';
+  document.getElementById('geTitle').textContent='工事件名を追加';
   renderProcEditList();
   hide('sProject'); show('sGroupEdit');
 }
@@ -479,13 +566,13 @@ function editGroup(groupId){
   const g=proj.groups.find(g=>g.id===groupId);
   geState={projId:curProjId, groupId, procs:[...g.procs]};
   document.getElementById('groupNameInp').value=g.name;
-  document.getElementById('geTitle').textContent='グループを編集';
+  document.getElementById('geTitle').textContent='工事件名を編集';
   renderProcEditList();
   hide('sProject'); show('sGroupEdit');
 }
 
 function deleteGroup(groupId){
-  if(!confirm('このグループを削除しますか？')) return;
+  if(!confirm('この工事件名を削除しますか？')) return;
   const projs=getProjects();
   const proj=projs.find(p=>p.id===curProjId);
   proj.groups=proj.groups.filter(g=>g.id!==groupId);
@@ -502,11 +589,67 @@ function renderProcEditList(){
   const list=document.getElementById('procEditList'); list.innerHTML='';
   geState.procs.forEach((proc,i)=>{
     const row=document.createElement('div'); row.className='proc-edit-row';
+    const handle=document.createElement('span'); handle.className='proc-drag-handle'; handle.textContent='☰';
     const nm=document.createElement('span'); nm.className='proc-edit-name'; nm.textContent=proc;
     const del=document.createElement('button'); del.className='proc-del-btn'; del.textContent='✕';
     del.onclick=()=>{geState.procs.splice(i,1);renderProcEditList();};
-    row.appendChild(nm); row.appendChild(del); list.appendChild(row);
+    row.appendChild(handle); row.appendChild(nm); row.appendChild(del); list.appendChild(row);
   });
+  makeProcListSortable();
+}
+
+function makeProcListSortable(){
+  const list=document.getElementById('procEditList');
+  let dragging=null, lastOver=null;
+
+  function getRows(){return [...list.querySelectorAll('.proc-edit-row')];}
+  function clearOver(){getRows().forEach(r=>{r.classList.remove('drag-over-top','drag-over-bot');});}
+
+  function onDragStart(e,row){
+    dragging=row;
+    row.classList.add('is-dragging');
+  }
+
+  function onDragMove(e){
+    if(!dragging) return;
+    e.preventDefault();
+    const clientY=e.touches?e.touches[0].clientY:e.clientY;
+    clearOver();
+    const others=getRows().filter(r=>r!==dragging);
+    let target=null, before=true;
+    for(const r of others){
+      const rect=r.getBoundingClientRect();
+      const mid=rect.top+rect.height/2;
+      if(clientY<mid){target=r;before=true;break;}
+      if(clientY>=rect.top){target=r;before=false;}
+    }
+    if(target){target.classList.add(before?'drag-over-top':'drag-over-bot');lastOver={target,before};}
+    else{lastOver=null;}
+  }
+
+  function onDragEnd(){
+    if(!dragging) return;
+    clearOver();
+    dragging.classList.remove('is-dragging');
+    if(lastOver){
+      const {target,before}=lastOver;
+      if(before) list.insertBefore(dragging,target);
+      else target.insertAdjacentElement('afterend',dragging);
+    }
+    // sync geState.procs from DOM order
+    geState.procs=getRows().map(r=>r.querySelector('.proc-edit-name').textContent);
+    dragging=null; lastOver=null;
+  }
+
+  getRows().forEach(row=>{
+    const handle=row.querySelector('.proc-drag-handle');
+    handle.addEventListener('touchstart',e=>{e.preventDefault();onDragStart(e,row);},{passive:false});
+    handle.addEventListener('mousedown',e=>{onDragStart(e,row);});
+  });
+  list.addEventListener('touchmove',onDragMove,{passive:false});
+  list.addEventListener('touchend',onDragEnd);
+  document.addEventListener('mousemove',onDragMove);
+  document.addEventListener('mouseup',onDragEnd);
 }
 
 function addProcItem(){
@@ -519,7 +662,7 @@ function addProcItem(){
 
 function saveGroup(){
   const name=document.getElementById('groupNameInp').value.trim();
-  if(!name){toast('グループ名を入力してください');return;}
+  if(!name){toast('工事件名を入力してください');return;}
   if(!geState.procs.length){toast('工種を1つ以上追加してください');return;}
   const projs=getProjects();
   const proj=projs.find(p=>p.id===geState.projId);
@@ -547,7 +690,7 @@ function shootWith(name, proc){
 function backFromCam(){
   stopCam();
   hide('sCam');
-  if(camFrom==='project') show('sProject');
+  if(camFrom==='project'){renderProject();show('sProject');}
   else show('sHome');
 }
 
@@ -779,7 +922,24 @@ async function clearAll(){
   await dbClear();photos=[];updateGalCount();renderGallery();toast('全て削除しました');
 }
 
-// ── SETTINGS ────────────────────────────────────────────────────
+// ── LIGHTBOX ─────────────────────────────────────────────────────
+let lbPhotos=[], lbIdx=0;
+function showLightbox(pArr, idx, proc){
+  lbPhotos=pArr; lbIdx=idx;
+  document.getElementById('lbProc').textContent=proc||'';
+  updateLightbox();
+  document.getElementById('lightbox').classList.remove('hidden');
+}
+function updateLightbox(){
+  document.getElementById('lbImg').src=lbPhotos[lbIdx].dataUrl;
+  document.getElementById('lbCount').textContent=`${lbIdx+1} / ${lbPhotos.length}`;
+  document.getElementById('lbPrev').disabled=lbIdx===0;
+  document.getElementById('lbNext').disabled=lbIdx===lbPhotos.length-1;
+}
+function closeLightbox(){document.getElementById('lightbox').classList.add('hidden');}
+function lbNav(dir){lbIdx=Math.max(0,Math.min(lbPhotos.length-1,lbIdx+dir));updateLightbox();}
+
+// ── SETTINGS ─────────────────────────────────────────────────────
 function openSettings(){document.getElementById('contractorInp').value=getPrefs().contractor||'';show('settingsModal');}
 function closeSettings(){hide('settingsModal');}
 function saveSettings(){const p=getPrefs();p.contractor=document.getElementById('contractorInp').value.trim();setPrefs(p);closeSettings();toast('設定を保存しました');}
