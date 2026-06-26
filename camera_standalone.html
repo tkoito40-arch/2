@@ -162,7 +162,11 @@ body{display:flex;flex-direction:column;}
   user-select:none;-webkit-user-select:none;}
 .bb-ov:active{cursor:grabbing;}
 .bb-ov .bb-table{flex-shrink:0;}
+.bb-ov .bb-table td{font-size:9px;padding:2px 4px;}
 .bb-ov .bb-proc-area{border-top:1px solid #fff;}
+.bb-contr-area{border-top:1px solid #fff;padding:2px 4px;font-size:9px;
+  color:#fff;text-align:center;flex-shrink:0;overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap;}
 .fallback-area{position:absolute;inset:0;display:flex;flex-direction:column;
   align-items:center;justify-content:center;gap:16px;z-index:10;}
 .fallback-area p{font-size:14px;color:#aaa;text-align:center;}
@@ -354,9 +358,11 @@ body{display:flex;flex-direction:column;}
     <div class="bb-ov" id="bbOv">
       <table class="bb-table">
         <tr><td class="bl">工事名</td><td class="bv" id="ov_n"></td></tr>
+        <tr><td class="bl">場所</td><td class="bv" id="ov_l"></td></tr>
         <tr><td class="bl">撮影日</td><td class="bv" id="ov_d"></td></tr>
       </table>
       <div class="bb-proc-area" id="ov_p"></div>
+      <div class="bb-contr-area" id="ov_c"></div>
     </div>
     <div class="fallback-area hidden" id="fallbackArea">
       <p>カメラを起動するには<br>下のボタンをタップ</p>
@@ -475,6 +481,7 @@ let editingProjId=null; // null=新規, id=編集中
 let camFrom='home'; // where to go back from camera
 let camGroupId=null; // groupId stored when shooting
 let camContractor=''; // 施工業者名 stored when shooting
+let camLocation='';   // 工事場所 stored when shooting
 let curProjId=null; // currently open project
 let curGroupId=null; // currently open group (工事種別)
 let wtFrom='project'; // where to return from sWorkType
@@ -885,6 +892,7 @@ function shootWith(name, proc){
   const proj=getProjects().find(p=>p.id===curProjId);
   camName=name; camProc=proc; camGroupId=curGroupId;
   camContractor=proj?proj.contractor||DEFAULT_CONTRACTOR:'';
+  camLocation=proj?proj.location||'':'';
   camFrom='groupDetail';
   hide('sHome'); hide('sProject'); hide('sWorkType'); hide('sGroupDetail'); hide('sGroupEdit'); hide('sGal'); show('sCam');
   updateOverlay(); initDrag(); startCam();
@@ -914,12 +922,14 @@ function backFromGallery(){
 function updateOverlay(){
   const n=getName(), p=getProc(), d=todayStr();
   document.getElementById('ov_n').textContent=n||'—';
-  document.getElementById('ov_p').textContent=p;
+  document.getElementById('ov_l').textContent=camLocation||'—';
   document.getElementById('ov_d').textContent=d;
+  document.getElementById('ov_p').textContent=p;
+  document.getElementById('ov_c').textContent=camContractor||'';
   document.getElementById('cName').textContent=n||'（工事名なし）';
   document.getElementById('cProc').textContent=p;
   const bw=document.getElementById('bbOv').offsetWidth||160;
-  document.getElementById('ov_p').style.fontSize=Math.max(11,Math.round(bw*0.13))+'px';
+  document.getElementById('ov_p').style.fontSize=Math.max(10,Math.round(bw*0.11))+'px';
 }
 
 function updateGalCount(){
@@ -1027,60 +1037,120 @@ const compositeBlackboard=d=>new Promise(ok=>{const i=new Image();i.onload=()=>{
 
 // ── BLACKBOARD DRAW ──────────────────────────────────────────────
 function drawBlackboard(ctx,cw,ch){
-  const kojiName=getName(),proc=getProc(),dateStr=todayStr();
+  const kojiName=getName(), proc=getProc(), dateStr=todayStr();
+  const location=camLocation, contractor=camContractor;
+
   const bw=Math.round(cw*0.50), bh=Math.round(bw*3/4);
   const bx=bbPos.yFrac!==null?Math.round(cw*bbPos.xFrac):Math.round(cw*0.015);
   const by=bbPos.yFrac!==null?Math.round(ch*bbPos.yFrac):ch-bh-Math.round(ch*0.015);
   const lw=Math.round(bw*0.27), brd=Math.max(2,Math.round(cw*0.002));
-  const testFs=Math.round(bh*0.13);
-  ctx.font=`bold ${testFs}px Meiryo,sans-serif`;
-  const maxValW=bw-lw-testFs*0.4;
-  const nameWrap=ctx.measureText(kojiName).width>maxValW;
-  const rows=[
-    {lbl:'工事名',val:kojiName,wrap:nameWrap},
-    camContractor?{lbl:'施工者',val:camContractor,wrap:false}:null,
-    {lbl:'撮影日',val:dateStr,wrap:false},
-  ].filter(Boolean);
-  const sH=Math.round(bh*0.16);
-  const totalH=rows.reduce((s,r)=>s+(r.wrap?sH*2:sH),0);
-  const procH=bh-totalH;
 
-  ctx.fillStyle='#1A5C1A';ctx.fillRect(bx,by,bw,bh);
-  ctx.strokeStyle='#fff';ctx.lineWidth=brd*2;ctx.strokeRect(bx+brd,by+brd,bw-brd*2,bh-brd*2);
+  // ── 行の高さを計算 ─────────────────────────
+  const sH=Math.round(bh*0.13);         // 1情報行の基本高さ
+  const contrH=Math.round(bh*0.12);     // 施工業者欄の高さ
+
+  // テキスト折返し判定用フォントサイズ
+  const baseFs=Math.round(sH*0.52);
+  const maxValW=bw-lw-baseFs*0.5;
+  ctx.font=`bold ${baseFs}px Meiryo,sans-serif`;
+
+  function needsWrap(text){ return text&&ctx.measureText(text).width>maxValW; }
+
+  const rows=[
+    {lbl:'工事名', val:kojiName,  wrap:needsWrap(kojiName)},
+    {lbl:'場所',   val:location,  wrap:needsWrap(location)},
+    {lbl:'撮影日', val:dateStr,   wrap:false},
+  ].filter(r=>r.val);
+
+  const topH=rows.reduce((s,r)=>s+(r.wrap?sH*2:sH),0);
+  const procH=bh-topH-contrH;           // 工種欄 = 残り全部
+
+  // ── 背景・外枠 ───────────────────────────
+  ctx.fillStyle='#1A5C1A'; ctx.fillRect(bx,by,bw,bh);
+  ctx.strokeStyle='#fff'; ctx.lineWidth=brd*2;
+  ctx.strokeRect(bx+brd,by+brd,bw-brd*2,bh-brd*2);
+
+  // ── 情報行を描画 ─────────────────────────
+  const drawRow=(row,y,rh)=>{
+    ctx.strokeStyle='#fff'; ctx.lineWidth=brd;
+    // ラベル縦線
+    ctx.beginPath(); ctx.moveTo(bx+lw,y); ctx.lineTo(bx+lw,y+rh); ctx.stroke();
+    // ラベル文字
+    const fs=Math.round(sH*0.48);
+    ctx.fillStyle='#fff'; ctx.textBaseline='middle'; ctx.textAlign='center';
+    ctx.font=`${fs}px Meiryo,sans-serif`;
+    ctx.fillText(row.lbl,bx+lw/2,y+rh/2);
+    // 値文字（折返し or 自動縮小）
+    ctx.textAlign='left';
+    if(row.wrap){
+      const wFs=Math.round(fs*0.88); ctx.font=`bold ${wFs}px Meiryo,sans-serif`;
+      const chars=Array.from(row.val);
+      let sp=Math.ceil(chars.length/2);
+      while(sp<chars.length&&ctx.measureText(chars.slice(0,sp).join('')).width>maxValW)sp++;
+      ctx.fillText(chars.slice(0,sp).join(''),bx+lw+wFs*0.2,y+rh*0.30);
+      ctx.fillText(chars.slice(sp).join(''),  bx+lw+wFs*0.2,y+rh*0.72);
+    } else {
+      ctx.font=`bold ${fs}px Meiryo,sans-serif`;
+      let val=row.val;
+      while(val.length>1&&ctx.measureText(val).width>maxValW)val=val.slice(0,-1);
+      if(val!==row.val)val+='…';
+      ctx.fillText(val,bx+lw+fs*0.2,y+rh/2);
+    }
+  };
 
   let curY=by;
   rows.forEach((row,i)=>{
     const rh=row.wrap?sH*2:sH;
-    if(i>0){ctx.strokeStyle='#fff';ctx.lineWidth=brd;ctx.beginPath();ctx.moveTo(bx,curY);ctx.lineTo(bx+bw,curY);ctx.stroke();}
-    ctx.strokeStyle='#fff';ctx.lineWidth=brd;ctx.beginPath();ctx.moveTo(bx+lw,curY);ctx.lineTo(bx+lw,curY+rh);ctx.stroke();
-    const fs=Math.round(sH*0.50);
-    ctx.fillStyle='#fff';ctx.textBaseline='middle';ctx.textAlign='center';
-    ctx.font=`${fs}px Meiryo,sans-serif`;ctx.fillText(row.lbl,bx+lw/2,curY+rh/2);
-    ctx.textAlign='left';
-    if(row.wrap){
-      const wFs=Math.round(fs*0.85);ctx.font=`bold ${wFs}px Meiryo,sans-serif`;
-      const chars=Array.from(row.val);
-      let sp=Math.ceil(chars.length/2);
-      while(sp<chars.length&&ctx.measureText(chars.slice(0,sp).join('')).width>maxValW)sp++;
-      const l1=chars.slice(0,sp).join(''),l2=chars.slice(sp).join('');
-      ctx.fillText(l1,bx+lw+wFs*0.2,curY+rh*0.32);ctx.fillText(l2,bx+lw+wFs*0.2,curY+rh*0.72);
-    } else {
-      ctx.font=`bold ${fs}px Meiryo,sans-serif`;
-      let val=row.val;
-      while(ctx.measureText(val).width>maxValW&&val.length>1)val=val.slice(0,-1);
-      if(val!==row.val)val+='…';
-      ctx.fillText(val,bx+lw+fs*0.2,curY+rh/2);
+    if(i>0){
+      ctx.strokeStyle='#fff'; ctx.lineWidth=brd;
+      ctx.beginPath(); ctx.moveTo(bx,curY); ctx.lineTo(bx+bw,curY); ctx.stroke();
     }
+    drawRow(row,curY,rh);
     curY+=rh;
   });
-  ctx.strokeStyle='#fff';ctx.lineWidth=brd;ctx.beginPath();ctx.moveTo(bx,curY);ctx.lineTo(bx+bw,curY);ctx.stroke();
-  ctx.textAlign='center';ctx.textBaseline='middle';
-  let pFs=Math.round(procH*0.30);ctx.font=`bold ${pFs}px Meiryo,sans-serif`;ctx.fillStyle='#fff';
-  if(ctx.measureText(proc).width>bw*0.88){
-    pFs=Math.round(procH*0.22);ctx.font=`bold ${pFs}px Meiryo,sans-serif`;
-    const mid=Math.ceil(proc.length/2);
-    ctx.fillText(proc.slice(0,mid),bx+bw/2,curY+procH*0.35);ctx.fillText(proc.slice(mid),bx+bw/2,curY+procH*0.68);
-  } else {ctx.fillText(proc,bx+bw/2,curY+procH/2);}
+
+  // ── 工種エリア区切り線 ───────────────────
+  ctx.strokeStyle='#fff'; ctx.lineWidth=brd*1.5;
+  ctx.beginPath(); ctx.moveTo(bx,curY); ctx.lineTo(bx+bw,curY); ctx.stroke();
+  const procY=curY;
+
+  // ── 工種テキスト（最大優先・自動サイズ）──
+  ctx.fillStyle='#fff'; ctx.textAlign='center'; ctx.textBaseline='middle';
+  const maxProcW=bw*0.90;
+
+  // 1行で収まるか試す
+  let pFs=Math.round(procH*0.38);
+  ctx.font=`bold ${pFs}px Meiryo,sans-serif`;
+  if(ctx.measureText(proc).width<=maxProcW){
+    ctx.fillText(proc,bx+bw/2,procY+procH/2);
+  } else {
+    // 2行で収まるか試す
+    const chars=Array.from(proc);
+    let sp=Math.ceil(chars.length/2);
+    pFs=Math.round(procH*0.28);
+    ctx.font=`bold ${pFs}px Meiryo,sans-serif`;
+    // splitポイントを右に動かして両行を均等に
+    while(sp<chars.length-1&&ctx.measureText(chars.slice(0,sp).join('')).width<ctx.measureText(chars.slice(sp).join('')).width)sp++;
+    let l1=chars.slice(0,sp).join(''), l2=chars.slice(sp).join('');
+    // 2行でも溢れるなら縮小
+    while(pFs>10&&(ctx.measureText(l1).width>maxProcW||ctx.measureText(l2).width>maxProcW)){
+      pFs--; ctx.font=`bold ${pFs}px Meiryo,sans-serif`;
+    }
+    ctx.fillText(l1,bx+bw/2,procY+procH*0.33);
+    ctx.fillText(l2,bx+bw/2,procY+procH*0.68);
+  }
+
+  // ── 施工業者欄 ───────────────────────────
+  const contrY=procY+procH;
+  ctx.strokeStyle='#fff'; ctx.lineWidth=brd;
+  ctx.beginPath(); ctx.moveTo(bx,contrY); ctx.lineTo(bx+bw,contrY); ctx.stroke();
+  if(contractor){
+    let cFs=Math.round(contrH*0.48);
+    ctx.font=`${cFs}px Meiryo,sans-serif`;
+    while(cFs>8&&ctx.measureText(contractor).width>bw*0.90){cFs--;ctx.font=`${cFs}px Meiryo,sans-serif`;}
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(contractor,bx+bw/2,contrY+contrH/2);
+  }
 }
 
 // ── GALLERY ─────────────────────────────────────────────────────
