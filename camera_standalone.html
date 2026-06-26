@@ -157,17 +157,7 @@ body{display:flex;flex-direction:column;}
 .cam-edit{font-size:11px;color:#555;white-space:nowrap;}
 .viewfinder{position:relative;flex:1;background:#000;overflow:hidden;}
 #camVideo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;}
-.bb-ov{position:absolute;bottom:10px;left:10px;width:48%;z-index:5;
-  aspect-ratio:4/3;background:#1A5C1A;border:2px solid #fff;border-radius:2px;
-  opacity:.92;cursor:grab;touch-action:none;display:flex;flex-direction:column;
-  user-select:none;-webkit-user-select:none;overflow:hidden;}
-.bb-ov:active{cursor:grabbing;}
-.bb-ov .bb-table{flex-shrink:0;}
-.bb-ov .bb-table td{font-size:9px;padding:2px 4px;}
-.bb-ov .bb-proc-area{border-top:1px solid #fff;}
-.bb-contr-area{border-top:1px solid #fff;padding:2px 4px;font-size:9px;
-  color:#fff;text-align:center;flex-shrink:0;overflow:hidden;
-  text-overflow:ellipsis;white-space:nowrap;}
+#bbCanvas{position:absolute;inset:0;width:100%;height:100%;z-index:5;touch-action:none;}
 .fallback-area{position:absolute;inset:0;display:flex;flex-direction:column;
   align-items:center;justify-content:center;gap:16px;z-index:10;}
 .fallback-area p{font-size:14px;color:#aaa;text-align:center;}
@@ -356,15 +346,7 @@ body{display:flex;flex-direction:column;}
   </div>
   <div class="viewfinder" id="viewfinder">
     <video id="camVideo" autoplay playsinline muted></video>
-    <div class="bb-ov" id="bbOv">
-      <table class="bb-table">
-        <tr><td class="bl">工事名</td><td class="bv" id="ov_n"></td></tr>
-        <tr><td class="bl">場所</td><td class="bv" id="ov_l"></td></tr>
-        <tr><td class="bl">撮影日</td><td class="bv" id="ov_d"></td></tr>
-      </table>
-      <div class="bb-proc-area" id="ov_p"></div>
-      <div class="bb-contr-area" id="ov_c"></div>
-    </div>
+    <canvas id="bbCanvas"></canvas>
     <div class="fallback-area hidden" id="fallbackArea">
       <p>カメラを起動するには<br>下のボタンをタップ</p>
       <label class="fallback-label" for="fileCap">📷<br>撮影する</label>
@@ -920,19 +902,22 @@ function backFromGallery(){
   else show('sHome');
 }
 
+function renderOverlayCanvas(){
+  const canvas=document.getElementById('bbCanvas');
+  const vf=document.getElementById('viewfinder');
+  const vfW=vf.offsetWidth, vfH=vf.offsetHeight;
+  if(!vfW||!vfH){requestAnimationFrame(renderOverlayCanvas);return;}
+  if(canvas.width!==vfW||canvas.height!==vfH){canvas.width=vfW;canvas.height=vfH;}
+  const ctx=canvas.getContext('2d');
+  ctx.clearRect(0,0,vfW,vfH);
+  drawBlackboard(ctx,vfW,vfH);
+}
+
 function updateOverlay(){
-  const n=getName(), p=getProc(), d=todayStr();
-  document.getElementById('ov_n').textContent=n||'—';
-  document.getElementById('ov_l').textContent=camLocation||'—';
-  document.getElementById('ov_d').textContent=d;
-  document.getElementById('ov_p').textContent=p;
-  document.getElementById('ov_c').textContent=camContractor||'';
+  const n=getName(), p=getProc();
   document.getElementById('cName').textContent=n||'（工事名なし）';
   document.getElementById('cProc').textContent=p;
-  const bw=document.getElementById('bbOv').offsetWidth||160;
-  const pLen=p.length;
-  const pFs=pLen<=5?0.13:pLen<=8?0.11:pLen<=12?0.09:pLen<=18?0.075:0.062;
-  document.getElementById('ov_p').style.fontSize=Math.max(8,Math.round(bw*pFs))+'px';
+  renderOverlayCanvas();
 }
 
 function updateGalCount(){
@@ -944,33 +929,45 @@ function updateGalCount(){
 
 // ── DRAG ────────────────────────────────────────────────────────
 function initDrag(){
-  const el=document.getElementById('bbOv'),vf=document.getElementById('viewfinder');
-  el.style.left='10px';el.style.bottom='10px';el.style.top='auto';el.style.right='auto';
+  const canvas=document.getElementById('bbCanvas'),vf=document.getElementById('viewfinder');
   bbPos={xFrac:0.015,yFrac:null};
   if(_dragCleanup)_dragCleanup();
+  const getBBBounds=()=>{
+    const vfR=vf.getBoundingClientRect(),vfW=vfR.width,vfH=vfR.height;
+    const bw=Math.round(vfW*0.50),bh=Math.round(bw*3/4);
+    const bx=bbPos.yFrac!==null?Math.round(vfW*bbPos.xFrac):Math.round(vfW*0.015);
+    const by=bbPos.yFrac!==null?Math.round(vfH*bbPos.yFrac):vfH-bh-Math.round(vfH*0.015);
+    return {bx,by,bw,bh,vfR,vfW,vfH};
+  };
   const onMove=e=>{
     if(!_drag)return;e.preventDefault();
-    const t=e.touches?e.touches[0]:e,vfR=vf.getBoundingClientRect();
-    let nx=_drag.ex+(t.clientX-_drag.cx),ny=_drag.ey+(t.clientY-_drag.cy);
-    nx=Math.max(0,Math.min(vfR.width-el.offsetWidth,nx));
-    ny=Math.max(0,Math.min(vfR.height-el.offsetHeight,ny));
-    el.style.left=nx+'px';el.style.top=ny+'px';el.style.bottom='auto';
-    bbPos={xFrac:nx/vfR.width,yFrac:ny/vfR.height};
-    _drag.cx=t.clientX;_drag.cy=t.clientY;_drag.ex=nx;_drag.ey=ny;
+    const t=e.touches?e.touches[0]:e;
+    const {vfR,vfW,vfH}=getBBBounds();
+    const bw=Math.round(vfW*0.50),bh=Math.round(bw*3/4);
+    let nx=_drag.bx+(t.clientX-_drag.cx),ny=_drag.by+(t.clientY-_drag.cy);
+    nx=Math.max(0,Math.min(vfW-bw,nx));
+    ny=Math.max(0,Math.min(vfH-bh,ny));
+    bbPos={xFrac:nx/vfW,yFrac:ny/vfH};
+    _drag.cx=t.clientX;_drag.cy=t.clientY;_drag.bx=nx;_drag.by=ny;
+    renderOverlayCanvas();
   };
   const onEnd=()=>{_drag=null;};
   const onStart=e=>{
-    const t=e.touches?e.touches[0]:e,r=el.getBoundingClientRect(),vfR=vf.getBoundingClientRect();
-    _drag={cx:t.clientX,cy:t.clientY,ex:r.left-vfR.left,ey:r.top-vfR.top};
+    const t=e.touches?e.touches[0]:e;
+    const {bx,by,bw,bh,vfR}=getBBBounds();
+    const cx=t.clientX-vfR.left,cy=t.clientY-vfR.top;
+    if(cx>=bx&&cx<=bx+bw&&cy>=by&&cy<=by+bh){
+      _drag={cx:t.clientX,cy:t.clientY,bx,by};
+    }
   };
-  el.addEventListener('touchstart',onStart,{passive:true});
-  el.addEventListener('mousedown',onStart);
+  canvas.addEventListener('touchstart',onStart,{passive:true});
+  canvas.addEventListener('mousedown',onStart);
   document.addEventListener('touchmove',onMove,{passive:false});
   document.addEventListener('touchend',onEnd);
   document.addEventListener('mousemove',onMove);
   document.addEventListener('mouseup',onEnd);
   _dragCleanup=()=>{
-    el.removeEventListener('touchstart',onStart);el.removeEventListener('mousedown',onStart);
+    canvas.removeEventListener('touchstart',onStart);canvas.removeEventListener('mousedown',onStart);
     document.removeEventListener('touchmove',onMove);document.removeEventListener('touchend',onEnd);
     document.removeEventListener('mousemove',onMove);document.removeEventListener('mouseup',onEnd);
   };
@@ -981,6 +978,7 @@ async function startCam(){
   try{
     stream=await navigator.mediaDevices.getUserMedia({video:{facingMode,width:{ideal:1920},height:{ideal:1080}}});
     document.getElementById('camVideo').srcObject=stream;
+    renderOverlayCanvas();
   }catch(e){hide('camVideo');show('fallbackArea');}
 }
 function stopCam(){
