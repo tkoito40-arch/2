@@ -503,7 +503,23 @@ async function addPhoto(dataUrl) {
   await dbPut(photo);
   updateGalCount();
   if (getName()) saveName(getName());
-  toast(`📷 撮影（合計${photos.length}枚）`);
+  autoSave(photo);
+  toast(`📷 保存しました（${photos.length}枚目）`);
+}
+
+function saveToDevice(dataUrl, filename) {
+  try {
+    const a = document.createElement('a');
+    a.href = dataUrl; a.download = filename;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  } catch(e) {}
+}
+
+function autoSave(photo) {
+  const proc = photo.proc.replace(/[\\/:*?"<>|]/g,'_');
+  const date = photo.date.replace(/[年月]/g,'-').replace('日','');
+  const num  = String(photos.length).padStart(3,'0');
+  saveToDevice(photo.dataUrl, `IMG_${num}_${proc}_${date}.jpg`);
 }
 
 // ── Image processing ─────────────────────────────────────────────
@@ -595,24 +611,30 @@ function renderGallery() {
   grid.className = 'gal-grid';
   photos.slice().reverse().forEach(p => {
     const div = document.createElement('div');
-    div.className='gal-item';
-    div.innerHTML=`
-      <img src="${p.dataUrl}" loading="lazy">
-      <div class="gal-proc">${p.proc}</div>
-      <div class="gal-dl" onclick="dlPhoto(${JSON.stringify(String(p.id))})">⬇ 保存</div>`;
+    div.className = 'gal-item';
+
+    const img = document.createElement('img');
+    img.src = p.dataUrl; img.loading = 'lazy';
+
+    const proc = document.createElement('div');
+    proc.className = 'gal-proc'; proc.textContent = p.proc;
+
+    const btn = document.createElement('div');
+    btn.className = 'gal-dl'; btn.textContent = '⬇ 保存';
+    btn.addEventListener('click', e => { e.stopPropagation(); dlPhoto(p); });
+
+    div.appendChild(img); div.appendChild(proc); div.appendChild(btn);
     grid.appendChild(div);
   });
   cnt.innerHTML=''; cnt.appendChild(grid);
 }
 
-function dlPhoto(id) {
-  const p = photos.find(x=>String(x.id)===String(id));
+function dlPhoto(p) {
   if (!p) return;
   const proc = p.proc.replace(/[\\/:*?"<>|]/g,'_');
   const date = (p.date||'').replace(/[年月]/g,'-').replace('日','');
-  const a = document.createElement('a');
-  a.href=p.dataUrl; a.download=`工事写真_${proc}_${date}.jpg`;
-  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  const num  = String(photos.indexOf(p)+1).padStart(3,'0');
+  saveToDevice(p.dataUrl, `${num}_${proc}_${date}.jpg`);
   toast('保存しました');
 }
 
