@@ -1,0 +1,19 @@
+{
+  "name": "電子黒板カメラ",
+  "short_name": "黒板カメラ",
+  "description": "工事現場の電子黒板入り写真を撮影するアプリ",
+  "start_url": "./camera_standalone.html",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#000000",
+  "theme_color": "#000000",
+  "lang": "ja",
+  "icons": [
+    {
+      "src": "camera_icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

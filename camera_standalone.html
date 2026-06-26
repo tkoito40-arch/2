@@ -1,0 +1,686 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="黒板カメラ">
+<meta name="theme-color" content="#000000">
+<link rel="manifest" href="manifest_camera.json">
+<title>電子黒板カメラ</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html,body{height:100%;overflow:hidden;background:#000;color:#fff;
+  font-family:'Meiryo UI',Meiryo,'Hiragino Sans',sans-serif;}
+body{display:flex;flex-direction:column;}
+
+.screen{flex:1;display:flex;flex-direction:column;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+.hidden{display:none!important;}
+
+/* ── INFO SCREEN ─────────────────────────────── */
+.hdr{display:flex;align-items:center;gap:10px;
+  padding:max(env(safe-area-inset-top),12px) 16px 10px;
+  background:#111;flex-shrink:0;}
+.hdr h1{flex:1;font-size:16px;font-weight:700;}
+.hdr-btn{background:#222;border:1px solid #444;color:#ccc;padding:6px 14px;
+  border-radius:6px;font-size:13px;cursor:pointer;font-family:inherit;}
+
+.info-body{padding:14px 16px;display:flex;flex-direction:column;gap:12px;}
+
+.type-scroll{display:flex;gap:7px;overflow-x:auto;padding-bottom:4px;
+  scrollbar-width:none;-webkit-overflow-scrolling:touch;}
+.type-scroll::-webkit-scrollbar{display:none;}
+.type-btn{flex-shrink:0;padding:7px 14px;background:#1a1a1a;
+  border:1.5px solid #333;border-radius:20px;color:#888;
+  font-size:13px;cursor:pointer;font-family:inherit;white-space:nowrap;}
+.type-btn.on{background:#1565C0;border-color:#1565C0;color:#fff;}
+
+.field label{display:block;font-size:10px;font-weight:700;color:#666;
+  letter-spacing:.5px;text-transform:uppercase;margin-bottom:5px;}
+.field select,.field input{width:100%;padding:11px 13px;
+  background:#151515;border:1px solid #2a2a2a;border-radius:10px;
+  color:#fff;font-size:15px;font-family:inherit;
+  -webkit-appearance:none;appearance:none;}
+.field select:focus,.field input:focus{outline:none;border-color:#1565C0;}
+.field select option{background:#151515;}
+
+/* BB preview */
+.bb-frame{background:#1A5C1A;border:2.5px solid #fff;border-radius:2px;overflow:hidden;}
+.bb-table{width:100%;border-collapse:collapse;}
+.bb-table td{border:1px solid #fff;padding:6px 9px;font-size:13px;color:#fff;}
+.bb-table .bl{width:68px;white-space:nowrap;}
+.bb-table .bv{font-weight:700;}
+.bb-sp{height:36px;}
+
+.gal-link{text-align:center;padding:8px;color:#42A5F5;font-size:13px;cursor:pointer;}
+
+.btn-go{width:100%;padding:15px;background:#1565C0;border:none;border-radius:12px;
+  color:#fff;font-size:16px;font-weight:700;font-family:inherit;cursor:pointer;}
+.btn-go:disabled{opacity:.3;}
+.btn-go:active{background:#0D47A1;}
+.btn-sec{width:100%;padding:12px;background:#1a1a1a;border:1px solid #333;
+  border-radius:10px;color:#aaa;font-size:14px;font-family:inherit;cursor:pointer;}
+
+/* ── CAMERA SCREEN ───────────────────────────── */
+.cam-top{display:flex;align-items:center;gap:8px;padding:max(env(safe-area-inset-top),10px) 14px 8px;
+  background:rgba(0,0,0,.75);backdrop-filter:blur(10px);flex-shrink:0;cursor:pointer;}
+.cam-name{font-size:13px;font-weight:700;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.cam-proc{font-size:12px;color:#42A5F5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:45%;}
+.cam-edit{font-size:11px;color:#555;white-space:nowrap;}
+
+.viewfinder{position:relative;flex:1;background:#000;overflow:hidden;}
+#camVideo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;}
+
+/* Live BB overlay */
+.bb-ov{position:absolute;bottom:10px;left:10px;width:54%;z-index:5;
+  background:#1A5C1A;border:2px solid #fff;border-radius:2px;opacity:.92;}
+
+/* Fallback */
+.fallback-area{position:absolute;inset:0;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:16px;z-index:10;}
+.fallback-area p{font-size:14px;color:#aaa;text-align:center;}
+.fallback-label{display:flex;align-items:center;justify-content:center;gap:8px;
+  width:160px;height:160px;border-radius:50%;background:#1565C0;
+  font-size:16px;font-weight:700;cursor:pointer;text-align:center;line-height:1.4;}
+#fileCap{display:none;}
+.album-label{font-size:13px;color:#555;cursor:pointer;text-decoration:underline;}
+#fileAlb2{display:none;}
+
+/* Flash */
+.flash{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none;z-index:20;}
+@keyframes flashAnim{0%{opacity:.9}100%{opacity:0}}
+
+/* Bottom controls */
+.cam-bar{display:flex;align-items:center;justify-content:space-around;
+  padding:16px 32px max(env(safe-area-inset-bottom),20px);
+  background:rgba(0,0,0,.85);flex-shrink:0;}
+.cam-icon{width:54px;height:54px;border-radius:50%;background:#222;
+  border:1.5px solid #444;font-size:22px;cursor:pointer;display:flex;
+  align-items:center;justify-content:center;position:relative;
+  user-select:none;-webkit-user-select:none;}
+.gal-badge{position:absolute;top:-4px;right:-4px;background:#F44336;color:#fff;
+  font-size:10px;font-weight:700;border-radius:10px;padding:1px 5px;min-width:18px;text-align:center;}
+.shutter-ring{width:76px;height:76px;border-radius:50%;border:3px solid #fff;
+  display:flex;align-items:center;justify-content:center;cursor:pointer;
+  background:transparent;user-select:none;-webkit-user-select:none;}
+.shutter-inner{width:62px;height:62px;border-radius:50%;background:#fff;
+  transition:transform .1s,background .1s;}
+.shutter-ring:active .shutter-inner{background:#ccc;transform:scale(.9);}
+
+/* ── GALLERY SCREEN ──────────────────────────── */
+.gal-hdr{display:flex;align-items:center;gap:10px;
+  padding:max(env(safe-area-inset-top),12px) 14px 10px;
+  background:#111;flex-shrink:0;}
+.gal-hdr h1{flex:1;font-size:15px;font-weight:700;}
+.gal-hdr button{background:#222;border:1px solid #333;color:#aaa;
+  padding:6px 14px;border-radius:6px;font-size:13px;cursor:pointer;font-family:inherit;}
+.gal-hdr .dl-all{background:#2E7D32;border-color:#2E7D32;color:#fff;}
+
+.gal-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:2px;padding:2px;background:#000;}
+.gal-item{position:relative;aspect-ratio:1;background:#111;overflow:hidden;}
+.gal-item img{width:100%;height:100%;object-fit:cover;display:block;}
+.gal-dl{position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,.65);
+  padding:5px 0;text-align:center;font-size:12px;color:#fff;cursor:pointer;}
+.gal-proc{position:absolute;top:0;left:0;right:0;background:rgba(21,101,192,.8);
+  padding:3px 5px;font-size:10px;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+
+.gal-empty{flex:1;display:flex;align-items:center;justify-content:center;
+  flex-direction:column;gap:14px;color:#444;padding:40px;}
+.gal-empty span{font-size:52px;}
+.gal-empty p{font-size:14px;}
+
+.gal-foot{padding:12px 16px max(env(safe-area-inset-bottom),12px);
+  background:#111;flex-shrink:0;}
+.del-btn{width:100%;padding:12px;border-radius:10px;font-size:14px;
+  font-family:inherit;cursor:pointer;background:transparent;
+  border:1px solid #F44336;color:#F44336;}
+
+/* ── MODAL ───────────────────────────────────── */
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:100;
+  display:flex;align-items:flex-end;}
+.modal{background:#1a1a1a;border-radius:20px 20px 0 0;
+  padding:20px 20px max(env(safe-area-inset-bottom),20px);
+  width:100%;display:flex;flex-direction:column;gap:12px;}
+.modal h2{font-size:16px;font-weight:700;text-align:center;}
+.modal .field select,.modal .field input{background:#111;border-color:#333;}
+.modal-btn{width:100%;padding:13px;border:none;border-radius:10px;
+  font-size:15px;font-family:inherit;cursor:pointer;}
+.modal-save{background:#1565C0;color:#fff;}
+.modal-cancel{background:#2a2a2a;color:#aaa;}
+
+/* ── TOAST ───────────────────────────────────── */
+.toast{position:fixed;bottom:calc(env(safe-area-inset-bottom,0px) + 90px);
+  left:50%;transform:translateX(-50%);background:#333;color:#fff;
+  padding:11px 22px;border-radius:24px;font-size:14px;font-weight:600;
+  white-space:nowrap;z-index:200;opacity:0;transition:opacity .25s;pointer-events:none;}
+.toast.show{opacity:1;}
+
+/* ── LOADER ──────────────────────────────────── */
+.loader{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;
+  align-items:center;justify-content:center;flex-direction:column;gap:14px;z-index:300;}
+.spin{width:38px;height:38px;border:3px solid rgba(255,255,255,.2);
+  border-top-color:#fff;border-radius:50%;animation:sp .7s linear infinite;}
+@keyframes sp{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+
+<!-- ████ INFO SCREEN ████ -->
+<div class="screen" id="sInfo">
+  <div class="hdr">
+    <h1>📷 電子黒板カメラ</h1>
+    <button class="hdr-btn" onclick="openSettings()">⚙ 設定</button>
+  </div>
+  <div class="info-body">
+    <div class="field">
+      <label>工事種別</label>
+      <div class="type-scroll" id="typeTabs"></div>
+    </div>
+    <div class="field" id="procSelWrap">
+      <label>工種</label>
+      <select id="procSel" onchange="updatePreview()"><option value="">-- 選択してください --</option></select>
+    </div>
+    <div class="field hidden" id="procInpWrap">
+      <label>工種（手入力）</label>
+      <input type="text" id="procInp" placeholder="工種名を入力" oninput="updatePreview()">
+    </div>
+    <div class="field">
+      <label>工事名</label>
+      <input type="text" id="nameInp" placeholder="例：○○配管工事" list="nameDL" oninput="updatePreview()">
+      <datalist id="nameDL"></datalist>
+    </div>
+    <div class="field">
+      <label>黒板プレビュー</label>
+      <div class="bb-frame">
+        <table class="bb-table">
+          <tr><td class="bl">工事名</td><td class="bv" id="pv_n">—</td></tr>
+          <tr><td class="bl">工　種</td><td class="bv" id="pv_p">—</td></tr>
+          <tr><td class="bl">撮影日</td><td class="bv" id="pv_d"></td></tr>
+          <tr><td colspan="2" class="bb-sp"></td></tr>
+        </table>
+      </div>
+    </div>
+    <div class="gal-link hidden" id="galLink" onclick="showGallery()">
+      🖼 撮影済み写真を見る（<span id="galLinkCnt">0</span>枚）
+    </div>
+    <button class="btn-go" id="goBtn" disabled onclick="showCamera()">📷 カメラを起動する</button>
+    <button class="btn-sec" onclick="openAlbum()">🖼 アルバムから読み込む</button>
+    <input type="file" id="fileAlb" accept="image/*" onchange="onAlbumFile(event)" style="display:none">
+  </div>
+</div>
+
+<!-- ████ CAMERA SCREEN ████ -->
+<div class="screen hidden" id="sCam">
+  <div class="cam-top" onclick="showInfo()">
+    <span class="cam-name" id="cName"></span>
+    <span class="cam-proc" id="cProc"></span>
+    <span class="cam-edit">▼ 変更</span>
+  </div>
+  <div class="viewfinder" id="viewfinder">
+    <video id="camVideo" autoplay playsinline muted></video>
+    <div class="bb-ov" id="bbOv">
+      <table class="bb-table">
+        <tr><td class="bl">工事名</td><td class="bv" id="ov_n"></td></tr>
+        <tr><td class="bl">工　種</td><td class="bv" id="ov_p"></td></tr>
+        <tr><td class="bl">撮影日</td><td class="bv" id="ov_d"></td></tr>
+        <tr><td colspan="2" class="bb-sp"></td></tr>
+      </table>
+    </div>
+    <div class="fallback-area hidden" id="fallbackArea">
+      <p>カメラを起動するには<br>下のボタンをタップ</p>
+      <label class="fallback-label" for="fileCap">📷<br>撮影する</label>
+      <input type="file" id="fileCap" accept="image/*" capture="environment" onchange="onCapFile(event)">
+      <label class="album-label" for="fileAlb2">アルバムから選ぶ</label>
+      <input type="file" id="fileAlb2" accept="image/*" onchange="onCapFile(event)">
+    </div>
+    <div class="flash" id="flash"></div>
+  </div>
+  <div class="cam-bar">
+    <div class="cam-icon" onclick="showGallery()">
+      🖼<span class="gal-badge" id="galBadge">0</span>
+    </div>
+    <div class="shutter-ring" onclick="shoot()">
+      <div class="shutter-inner"></div>
+    </div>
+    <div class="cam-icon" onclick="flipCam()">🔄</div>
+  </div>
+</div>
+
+<!-- ████ GALLERY SCREEN ████ -->
+<div class="screen hidden" id="sGal">
+  <div class="gal-hdr">
+    <button onclick="backFromGallery()">← 戻る</button>
+    <h1>写真（<span id="galTotal">0</span>枚）</h1>
+    <button class="dl-all" onclick="downloadAll()">⬇ 一括</button>
+  </div>
+  <div id="galContent" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;"></div>
+  <div class="gal-foot">
+    <button class="del-btn" onclick="clearAll()">🗑 全て削除</button>
+  </div>
+</div>
+
+<!-- Settings Modal -->
+<div class="modal-bg hidden" id="settingsModal">
+  <div class="modal">
+    <h2>⚙ 設定</h2>
+    <div class="field">
+      <label>施工者名（黒板に追加表示）</label>
+      <input type="text" id="contractorInp" placeholder="例：○○工業株式会社">
+    </div>
+    <button class="modal-btn modal-save" onclick="saveSettings()">保存</button>
+    <button class="modal-btn modal-cancel" onclick="closeSettings()">キャンセル</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script>
+// ── テンプレート ─────────────────────────────────────────────────
+const TYPES = [
+  { name:'給水（東京都）', procs:['着工前','カッター工','使用材料','密着コア使用','穿孔刃','分岐部耐圧テスト(0.75MPa)','分岐部耐圧テスト（接写）','穿孔状況','コア挿入前','コア挿入','コア挿入後','サヤ菅設置','サヤ菅設置（モルタル充填）','宅内耐圧テスト','宅内耐圧テスト（接写）','宅内配管状況','床付け','分岐部配管状況','SUS配管状況','埋戻し工','仮復旧','設置完了','明示杭・メーターチャッキ・メーターボックス・散水栓'] },
+  { name:'給水（神奈川）', procs:['着工前','カッター工','使用材料','密着コア使用','分岐部耐圧テスト（1.75MPa）','分岐部耐圧テスト（接写）','穿孔状況','コア挿入前','コア挿入','コア挿入後','サヤ菅設置','サヤ菅設置（モルタル充填）','宅内耐圧テスト','宅内耐圧テスト（接写）','宅内配管状況','床付け','分岐部配管状況','SUS配管状況','埋戻し工','仮復旧'] },
+  { name:'下水道工事', procs:['着工前','カッター工','使用材料','削孔状況','削孔穴','支管取付（接合材塗布）','支管取付','桝設置　床付け','桝設置　基礎','桝設置','床付け','分岐部配管状況','取付管φ150配管状況','サヤ菅設置（モルタル）充填','埋戻し工','仮復旧工'] },
+  { name:'桝交換', procs:['着工前','既設桝撤去材','桝設置　床付け','桝設置　基礎','桝設置','桝設置　高さ（H）','設置完了'] },
+  { name:'手入力', procs:[] }
+];
+
+// ── State ──────────────────────────────────────────────────────
+let currentType = 0;
+let stream = null;
+let facingMode = 'environment';
+let photos = [];
+let camFrom = 'info';
+let db = null;
+
+// ── IndexedDB ──────────────────────────────────────────────────
+function openDB() {
+  return new Promise((ok, ng) => {
+    const req = indexedDB.open('bbcam2', 1);
+    req.onupgradeneeded = e => e.target.result.createObjectStore('photos', {keyPath:'id'});
+    req.onsuccess = e => { db = e.target.result; ok(); };
+    req.onerror = ng;
+  });
+}
+const dbOp = (mode, fn) => new Promise(ok => {
+  const tx = db.transaction('photos', mode);
+  ok(fn(tx.objectStore('photos')));
+});
+const dbPut = obj => dbOp('readwrite', s => { s.put(obj); });
+const dbDel = id  => dbOp('readwrite', s => { s.delete(id); });
+const dbClear = () => dbOp('readwrite', s => { s.clear(); });
+const dbGetAll = () => new Promise(ok => {
+  const req = db.transaction('photos','readonly').objectStore('photos').getAll();
+  req.onsuccess = e => ok(e.target.result || []);
+});
+
+// ── Prefs ──────────────────────────────────────────────────────
+const getPrefs = () => JSON.parse(localStorage.getItem('bbcam_p')||'{}');
+const setPrefs = p => localStorage.setItem('bbcam_p', JSON.stringify(p));
+
+// ── Helpers ────────────────────────────────────────────────────
+const todayStr = () => { const d=new Date(); return `${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日`; };
+const getProc = () => currentType===4 ? document.getElementById('procInp').value.trim() : document.getElementById('procSel').value;
+const getName = () => document.getElementById('nameInp').value.trim();
+
+// ── Init ───────────────────────────────────────────────────────
+async function init() {
+  await openDB();
+  photos = await dbGetAll();
+
+  const tabs = document.getElementById('typeTabs');
+  TYPES.forEach((t,i) => {
+    const b = document.createElement('button');
+    b.className = 'type-btn' + (i===0?' on':'');
+    b.textContent = t.name;
+    b.onclick = () => setType(i);
+    tabs.appendChild(b);
+  });
+
+  const prefs = getPrefs();
+  if (prefs.names) updateNameDL(prefs.names);
+  if (prefs.contractor) document.getElementById('contractorInp').value = prefs.contractor;
+
+  setType(0);
+  updateGalCount();
+
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw_camera.js').catch(()=>{});
+  }
+}
+
+const updateNameDL = names => {
+  document.getElementById('nameDL').innerHTML = names.map(n=>`<option value="${n}">`).join('');
+};
+
+// ── Type ───────────────────────────────────────────────────────
+function setType(idx) {
+  currentType = idx;
+  document.querySelectorAll('.type-btn').forEach((b,i) => b.classList.toggle('on', i===idx));
+  const manual = idx===4;
+  document.getElementById('procSelWrap').classList.toggle('hidden', manual);
+  document.getElementById('procInpWrap').classList.toggle('hidden', !manual);
+  if (!manual) {
+    document.getElementById('procSel').innerHTML =
+      '<option value="">-- 選択してください --</option>' +
+      TYPES[idx].procs.map(p=>`<option value="${p}">${p}</option>`).join('');
+  }
+  updatePreview();
+}
+
+// ── Preview ─────────────────────────────────────────────────────
+function updatePreview() {
+  const n = getName(), p = getProc(), d = todayStr();
+  document.getElementById('pv_n').textContent = n || '—';
+  document.getElementById('pv_p').textContent = p || '—';
+  document.getElementById('pv_d').textContent = d;
+  document.getElementById('goBtn').disabled = !p;
+  document.getElementById('ov_n').textContent = n || '—';
+  document.getElementById('ov_p').textContent = p;
+  document.getElementById('ov_d').textContent = d;
+  document.getElementById('cName').textContent = n || '（工事名未入力）';
+  document.getElementById('cProc').textContent = p;
+}
+
+function updateGalCount() {
+  const n = photos.length;
+  document.getElementById('galBadge').textContent = n;
+  document.getElementById('galLinkCnt').textContent = n;
+  document.getElementById('galLink').classList.toggle('hidden', n===0);
+  document.getElementById('galTotal').textContent = n;
+}
+
+// ── Screen nav ──────────────────────────────────────────────────
+function showInfo() {
+  stopCam();
+  show('sInfo'); hide('sCam'); hide('sGal');
+  updatePreview();
+}
+
+async function showCamera() {
+  camFrom = 'cam';
+  hide('sInfo'); show('sCam'); hide('sGal');
+  updatePreview();
+  await startCam();
+}
+
+function showGallery() {
+  camFrom = document.getElementById('sCam').classList.contains('hidden') ? 'info' : 'cam';
+  stopCam();
+  hide('sInfo'); hide('sCam'); show('sGal');
+  renderGallery();
+}
+
+function backFromGallery() {
+  camFrom==='cam' ? showCamera() : showInfo();
+}
+
+const show = id => document.getElementById(id).classList.remove('hidden');
+const hide = id => document.getElementById(id).classList.add('hidden');
+
+// ── Camera ──────────────────────────────────────────────────────
+async function startCam() {
+  show('camVideo'); hide('fallbackArea');
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode, width:{ideal:1920}, height:{ideal:1080} }
+    });
+    document.getElementById('camVideo').srcObject = stream;
+  } catch(e) {
+    hide('camVideo'); show('fallbackArea');
+  }
+}
+
+function stopCam() {
+  if (stream) { stream.getTracks().forEach(t=>t.stop()); stream=null; }
+  document.getElementById('camVideo').srcObject = null;
+}
+
+async function flipCam() {
+  facingMode = facingMode==='environment' ? 'user' : 'environment';
+  stopCam(); await startCam();
+}
+
+// ── Shoot ────────────────────────────────────────────────────────
+async function shoot() {
+  const video = document.getElementById('camVideo');
+  if (!video.srcObject || !video.videoWidth) return;
+  triggerFlash();
+  const dataUrl = captureVideo(video);
+  await addPhoto(dataUrl);
+}
+
+function triggerFlash() {
+  const f = document.getElementById('flash');
+  f.style.animation='none'; f.offsetHeight;
+  f.style.animation='flashAnim .35s ease-out forwards';
+}
+
+function captureVideo(video) {
+  const w = video.videoWidth, h = video.videoHeight;
+  const c = document.createElement('canvas');
+  c.width=w; c.height=h;
+  const ctx = c.getContext('2d');
+  ctx.drawImage(video,0,0,w,h);
+  drawBlackboard(ctx,w,h);
+  return c.toDataURL('image/jpeg',.90);
+}
+
+async function onCapFile(e) {
+  const file = e.target.files[0]; e.target.value='';
+  if (!file) return;
+  showLoader();
+  try {
+    const raw = await readFile(file);
+    const resized = await resizeDataUrl(raw,1920);
+    const composited = await compositeBlackboard(resized);
+    await addPhoto(composited);
+  } catch(err) { toast('エラー: '+err.message); }
+  hideLoader();
+}
+
+async function onAlbumFile(e) {
+  const file = e.target.files[0]; e.target.value='';
+  if (!file) return;
+  showLoader();
+  try {
+    const raw = await readFile(file);
+    const resized = await resizeDataUrl(raw,1920);
+    const composited = await compositeBlackboard(resized);
+    await addPhoto(composited);
+    toast('写真を読み込みました');
+  } catch(err) { toast('エラー: '+err.message); }
+  hideLoader();
+}
+
+function openAlbum() { document.getElementById('fileAlb').click(); }
+
+async function addPhoto(dataUrl) {
+  const photo = { id: Date.now()+Math.random(), dataUrl, proc:getProc(), name:getName(), date:todayStr() };
+  photos.push(photo);
+  await dbPut(photo);
+  updateGalCount();
+  if (getName()) saveName(getName());
+  toast(`📷 撮影（合計${photos.length}枚）`);
+}
+
+// ── Image processing ─────────────────────────────────────────────
+const readFile = f => new Promise((ok,ng)=>{
+  const r=new FileReader(); r.onload=e=>ok(e.target.result); r.onerror=ng; r.readAsDataURL(f);
+});
+
+const resizeDataUrl = (dataUrl, maxPx) => new Promise(ok=>{
+  const img=new Image(); img.onload=()=>{
+    let w=img.width,h=img.height;
+    if(w>maxPx||h>maxPx){ if(w>h){h=Math.round(h*maxPx/w);w=maxPx;}else{w=Math.round(w*maxPx/h);h=maxPx;} }
+    const c=document.createElement('canvas'); c.width=w; c.height=h;
+    c.getContext('2d').drawImage(img,0,0,w,h);
+    ok(c.toDataURL('image/jpeg',.88));
+  }; img.src=dataUrl;
+});
+
+const compositeBlackboard = dataUrl => new Promise(ok=>{
+  const img=new Image(); img.onload=()=>{
+    const w=img.width,h=img.height;
+    const c=document.createElement('canvas'); c.width=w; c.height=h;
+    const ctx=c.getContext('2d'); ctx.drawImage(img,0,0);
+    drawBlackboard(ctx,w,h); ok(c.toDataURL('image/jpeg',.90));
+  }; img.src=dataUrl;
+});
+
+// ── Blackboard draw ──────────────────────────────────────────────
+function drawBlackboard(ctx, cw, ch) {
+  const prefs = getPrefs();
+  const rows = [
+    { lbl:'工事名', val: getName() },
+    { lbl:'工　種', val: getProc() },
+    prefs.contractor ? { lbl:'施工者', val: prefs.contractor } : null,
+    { lbl:'撮影日', val: todayStr() },
+  ].filter(Boolean);
+
+  const bw   = Math.round(cw * 0.52);
+  const rowH = Math.round(ch * 0.060);
+  const emH  = Math.round(ch * 0.090);
+  const bh   = rowH * rows.length + emH;
+  const bx   = Math.round(cw * 0.015);
+  const by   = ch - bh - Math.round(ch * 0.015);
+  const lw   = Math.round(bw * 0.27);
+  const fs   = Math.round(rowH * 0.50);
+  const brd  = Math.max(2, Math.round(cw * 0.002));
+
+  ctx.fillStyle = '#1A5C1A';
+  ctx.fillRect(bx, by, bw, bh);
+
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = brd*2;
+  ctx.strokeRect(bx+brd, by+brd, bw-brd*2, bh-brd*2);
+
+  ctx.textBaseline = 'middle';
+  rows.forEach((row, i) => {
+    const ry = by + rowH*i;
+    if (i>0) {
+      ctx.strokeStyle='#fff'; ctx.lineWidth=brd;
+      ctx.beginPath(); ctx.moveTo(bx,ry); ctx.lineTo(bx+bw,ry); ctx.stroke();
+    }
+    ctx.strokeStyle='#fff'; ctx.lineWidth=brd;
+    ctx.beginPath(); ctx.moveTo(bx+lw,ry); ctx.lineTo(bx+lw,ry+rowH); ctx.stroke();
+
+    ctx.fillStyle='#fff';
+    ctx.font=`${fs}px Meiryo,sans-serif`; ctx.textAlign='center';
+    ctx.fillText(row.lbl, bx+lw/2, ry+rowH/2);
+
+    ctx.font=`bold ${fs}px Meiryo,sans-serif`; ctx.textAlign='left';
+    let val=row.val;
+    const maxW=bw-lw-fs*0.3;
+    while(ctx.measureText(val).width>maxW && val.length>1) val=val.slice(0,-1);
+    if(val!==row.val) val+='…';
+    ctx.fillText(val, bx+lw+fs*0.2, ry+rowH/2);
+  });
+
+  const ey = by+rowH*rows.length;
+  ctx.strokeStyle='#fff'; ctx.lineWidth=brd;
+  ctx.beginPath(); ctx.moveTo(bx,ey); ctx.lineTo(bx+bw,ey); ctx.stroke();
+}
+
+// ── Gallery ──────────────────────────────────────────────────────
+function renderGallery() {
+  const cnt = document.getElementById('galContent');
+  document.getElementById('galTotal').textContent = photos.length;
+  if (!photos.length) {
+    cnt.innerHTML='<div class="gal-empty"><span>📷</span><p>まだ写真がありません</p></div>';
+    return;
+  }
+  const grid = document.createElement('div');
+  grid.className = 'gal-grid';
+  photos.slice().reverse().forEach(p => {
+    const div = document.createElement('div');
+    div.className='gal-item';
+    div.innerHTML=`
+      <img src="${p.dataUrl}" loading="lazy">
+      <div class="gal-proc">${p.proc}</div>
+      <div class="gal-dl" onclick="dlPhoto(${JSON.stringify(String(p.id))})">⬇ 保存</div>`;
+    grid.appendChild(div);
+  });
+  cnt.innerHTML=''; cnt.appendChild(grid);
+}
+
+function dlPhoto(id) {
+  const p = photos.find(x=>String(x.id)===String(id));
+  if (!p) return;
+  const proc = p.proc.replace(/[\\/:*?"<>|]/g,'_');
+  const date = (p.date||'').replace(/[年月]/g,'-').replace('日','');
+  const a = document.createElement('a');
+  a.href=p.dataUrl; a.download=`工事写真_${proc}_${date}.jpg`;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  toast('保存しました');
+}
+
+async function downloadAll() {
+  if (!photos.length) { toast('写真がありません'); return; }
+  if (typeof JSZip==='undefined') {
+    photos.forEach(p=>dlPhoto(String(p.id))); return;
+  }
+  showLoader('ZIPを作成中...');
+  try {
+    const zip=new JSZip();
+    photos.forEach((p,i)=>{
+      const proc=p.proc.replace(/[\\/:*?"<>|]/g,'_');
+      zip.file(`${String(i+1).padStart(3,'0')}_${proc}.jpg`, p.dataUrl.split(',')[1],{base64:true});
+    });
+    const blob=await zip.generateAsync({type:'blob'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a'); a.href=url;
+    a.download=`工事写真_${new Date().toLocaleDateString('ja-JP').replace(/\//g,'-')}.zip`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(()=>URL.revokeObjectURL(url),5000);
+    toast(`${photos.length}枚をZIPで保存しました`);
+  } catch(e) { toast('エラー: '+e.message); }
+  hideLoader();
+}
+
+async function clearAll() {
+  if (!photos.length) { toast('写真がありません'); return; }
+  if (!confirm(`${photos.length}枚の写真を全て削除しますか？`)) return;
+  await dbClear(); photos=[]; updateGalCount(); renderGallery();
+  toast('全て削除しました');
+}
+
+// ── Settings ─────────────────────────────────────────────────────
+function openSettings() {
+  const p=getPrefs();
+  document.getElementById('contractorInp').value=p.contractor||'';
+  show('settingsModal');
+}
+function closeSettings() { hide('settingsModal'); }
+function saveSettings() {
+  const p=getPrefs();
+  p.contractor=document.getElementById('contractorInp').value.trim();
+  setPrefs(p); closeSettings(); toast('設定を保存しました');
+}
+
+function saveName(name) {
+  const p=getPrefs(); const names=p.names||[];
+  if(!names.includes(name)){ names.unshift(name); if(names.length>20)names.pop(); }
+  p.names=names; setPrefs(p); updateNameDL(names);
+}
+
+// ── Toast / Loader ────────────────────────────────────────────────
+function toast(msg, dur=2800) {
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.classList.add('show');
+  clearTimeout(t._timer); t._timer=setTimeout(()=>t.classList.remove('show'),dur);
+}
+let loaderEl=null;
+function showLoader(msg='処理中...') {
+  if(loaderEl)return;
+  loaderEl=document.createElement('div'); loaderEl.className='loader';
+  loaderEl.innerHTML=`<div class="spin"></div><span>${msg}</span>`;
+  document.body.appendChild(loaderEl);
+}
+function hideLoader(){ if(loaderEl){loaderEl.remove();loaderEl=null;} }
+
+init();
+</script>
+</body>
+</html>
