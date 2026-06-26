@@ -804,9 +804,12 @@ function _resizeForPDF(dataUrl){
       if(w>maxW){h=Math.round(h*maxW/w);w=maxW;}
       const c=document.createElement('canvas');
       c.width=w;c.height=h;
-      c.getContext('2d').drawImage(img,0,0,w,h);
-      ok(c.toDataURL('image/jpeg',0.80));
+      const ctx=c.getContext('2d');
+      ctx.fillStyle='#fff';ctx.fillRect(0,0,w,h);
+      ctx.drawImage(img,0,0,w,h);
+      ok(c.toDataURL('image/jpeg',0.82));
     };
+    img.onerror=()=>ok(dataUrl);
     img.src=dataUrl;
   });
 }
@@ -867,7 +870,7 @@ body{font-family:'Meiryo','Hiragino Sans',sans-serif;background:#e8e8e8;}
 .row{display:flex;height:82mm;border-bottom:1px solid #ddd;margin-bottom:2.5mm;padding-bottom:2.5mm;}
 .row:last-of-type{border-bottom:none;margin-bottom:0;padding-bottom:0;}
 .ph-col{width:130mm;flex-shrink:0;padding-right:4mm;}
-.ph-col img{width:100%;height:78mm;object-fit:cover;display:block;border:0.3mm solid #ccc;}
+.ph-col img{width:100%;height:78mm;object-fit:contain;background:#fff;display:block;border:0.3mm solid #ccc;}
 .lbl-col{flex:1;}
 .proc-head{font-size:12pt;font-weight:bold;padding-bottom:2mm;}
 .rule{border-bottom:2.5px solid #000;margin-bottom:3mm;}
@@ -927,25 +930,60 @@ async function shareGroupPhotos(){
   if(!allPhotos.length){toast('写真がありません');return;}
   if(!navigator.share){toast('この端末では共有機能を利用できません');return;}
 
-  showLoader('共有準備中...');
+  showLoader('PDF作成中...');
   try{
-    const MAX=20;
-    const files=await Promise.all(allPhotos.slice(0,MAX).map(({ph,proc},i)=>{
-      const bin=atob(ph.dataUrl.split(',')[1]);
-      const buf=new Uint8Array(bin.length);
-      for(let j=0;j<bin.length;j++) buf[j]=bin.charCodeAt(j);
-      const name=`${String(i+1).padStart(2,'0')}_${proc.replace(/[\\/:*?"<>|]/g,'_')}.jpg`;
-      return new File([buf],name,{type:'image/jpeg'});
-    }));
-    const title=`${proj.name}　${g.name}`;
-    const text=`${proj.name}\n${g.name}\n写真${allPhotos.length}枚`;
-    if(navigator.canShare&&navigator.canShare({files})){
-      await navigator.share({title,text,files});
+    // Load jsPDF from CDN on first use
+    if(!window.jspdf){
+      await new Promise((res,rej)=>{
+        const s=document.createElement('script');
+        s.src='https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+        s.onload=res;
+        s.onerror=()=>rej(new Error('ネットワークに接続してください（jsPDF読み込み失敗）'));
+        document.head.appendChild(s);
+      });
+    }
+    const {jsPDF}=window.jspdf;
+    const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+    const mg=8,gap=4;
+    const bw=210-2*mg;                          // 194mm
+    const bh=Math.floor((297-2*mg-2*gap)/3);    // ~91mm
+
+    for(let i=0;i<allPhotos.length;i++){
+      if(i>0&&i%3===0) doc.addPage();
+      const pi=i%3;
+      const bx=mg, by=mg+pi*(bh+gap);
+      const src=await _resizeForPDF(allPhotos[i].ph.dataUrl);
+      // Fit image inside box maintaining aspect ratio (object-fit:contain)
+      const im=await new Promise(ok=>{
+        const x=new Image();x.onload=()=>ok(x);x.onerror=()=>ok(null);x.src=src;
+      });
+      if(!im){doc.addImage(src,'JPEG',bx,by,bw,bh,'','FAST');continue;}
+      const iw=im.naturalWidth||im.width, ih=im.naturalHeight||im.height;
+      const iAR=iw/ih, bAR=bw/bh;
+      let dw,dh,dx=bx,dy=by;
+      if(iAR>=bAR){dw=bw;dh=Math.round(bw/iAR);dy=by+Math.round((bh-dh)/2);}
+      else{dh=bh;dw=Math.round(bh*iAR);dx=bx+Math.round((bw-dw)/2);}
+      doc.addImage(src,'JPEG',dx,dy,dw,dh,'','FAST');
+    }
+
+    const blob=doc.output('blob');
+    const fn=`${proj.name}_${g.name}.pdf`;
+    const file=new File([blob],fn,{type:'application/pdf'});
+
+    if(navigator.canShare&&navigator.canShare({files:[file]})){
+      await navigator.share({title:`${proj.name} ${g.name}`,files:[file]});
     } else {
-      await navigator.share({title,text});
+      // Download fallback (Android / desktop)
+      const url=URL.createObjectURL(blob);
+      const a=document.createElement('a');
+      a.href=url;a.download=fn;
+      document.body.appendChild(a);a.click();
+      document.body.removeChild(a);URL.revokeObjectURL(url);
+      toast('PDFをダウンロードしました');
     }
   } catch(e){
-    if(e.name!=='AbortError') toast('共有に失敗しました');
+    if(e.name==='AbortError') return;
+    toast('共有に失敗しました: '+e.message);
   } finally {
     hideLoader();
   }
