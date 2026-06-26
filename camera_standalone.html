@@ -22,63 +22,85 @@ body{display:flex;flex-direction:column;}
 .hdr{display:flex;align-items:center;gap:8px;
   padding:max(env(safe-area-inset-top),12px) 14px 10px;
   background:#111;flex-shrink:0;}
-.hdr h1{flex:1;font-size:15px;font-weight:700;}
+.hdr h1{flex:1;font-size:15px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .hdr-btn{background:#222;border:1px solid #333;color:#ccc;padding:6px 12px;
-  border-radius:6px;font-size:13px;cursor:pointer;font-family:inherit;white-space:nowrap;}
+  border-radius:6px;font-size:13px;cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0;}
 
-/* ── HOME SCREEN ── */
-.home-body{padding:14px 16px;display:flex;flex-direction:column;gap:10px;}
-.btn-new{width:100%;padding:16px;background:#1565C0;border:none;border-radius:12px;
-  color:#fff;font-size:16px;font-weight:700;font-family:inherit;cursor:pointer;}
+/* ── SHARED BODY ── */
+.body{padding:14px 16px;display:flex;flex-direction:column;gap:10px;}
+.btn-new{width:100%;padding:15px;background:#1565C0;border:none;border-radius:12px;
+  color:#fff;font-size:15px;font-weight:700;font-family:inherit;cursor:pointer;}
 .btn-new:active{background:#0D47A1;}
-.sec-label{font-size:11px;font-weight:700;color:#555;letter-spacing:.5px;text-transform:uppercase;
-  padding:4px 0 2px;}
-.tpl-empty{color:#444;font-size:14px;text-align:center;padding:24px;}
-.tpl-card{background:#151515;border:1px solid #252525;border-radius:10px;
-  display:flex;align-items:center;gap:0;overflow:hidden;}
-.tpl-info{flex:1;padding:12px 14px;cursor:pointer;min-width:0;}
-.tpl-koji{font-size:14px;font-weight:700;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.tpl-proc{font-size:12px;color:#42A5F5;margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.tpl-btns{display:flex;flex-shrink:0;}
-.tpl-btn{width:48px;height:100%;min-height:60px;border:none;background:transparent;
-  color:#666;font-size:18px;cursor:pointer;border-left:1px solid #252525;
-  display:flex;align-items:center;justify-content:center;}
-.tpl-btn.shoot{background:#1565C0;color:#fff;}
-.tpl-btn:active{opacity:.7;}
-
-/* ── EDIT SCREEN ── */
-.edit-body{padding:14px 16px;display:flex;flex-direction:column;gap:12px;}
+.btn-go{width:100%;padding:14px;background:#1565C0;border:none;border-radius:10px;
+  color:#fff;font-size:15px;font-weight:700;font-family:inherit;cursor:pointer;}
+.btn-go:disabled{opacity:.3;}
+.btn-sec{width:100%;padding:12px;background:#1a1a1a;border:1px solid #2a2a2a;
+  border-radius:10px;color:#aaa;font-size:14px;font-family:inherit;cursor:pointer;}
+.sec-label{font-size:11px;font-weight:700;color:#555;letter-spacing:.5px;text-transform:uppercase;}
+.empty-msg{color:#444;font-size:14px;text-align:center;padding:24px;}
 .field label{display:block;font-size:10px;font-weight:700;color:#555;
   letter-spacing:.5px;text-transform:uppercase;margin-bottom:5px;}
 .field input{width:100%;padding:11px 13px;background:#151515;border:1px solid #252525;
-  border-radius:10px;color:#fff;font-size:15px;font-family:inherit;
-  -webkit-appearance:none;appearance:none;}
+  border-radius:10px;color:#fff;font-size:15px;font-family:inherit;-webkit-appearance:none;}
 .field input:focus{outline:none;border-color:#1565C0;}
 .hint{font-size:11px;color:#444;margin-top:4px;}
 
-/* BB preview */
+/* ── HOME: 案件カード ── */
+.proj-card{background:#151515;border:1px solid #222;border-radius:10px;
+  display:flex;align-items:center;cursor:pointer;}
+.proj-card:active{background:#1a2040;}
+.proj-info{flex:1;padding:13px 14px;min-width:0;}
+.proj-name{font-size:15px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.proj-sub{font-size:12px;color:#555;margin-top:3px;}
+.proj-arrow{padding:0 16px;color:#444;font-size:20px;}
+.proj-del{padding:0 14px;color:#555;font-size:18px;cursor:pointer;border:none;background:transparent;}
+
+/* ── PROJECT: グループセクション ── */
+.group-section{border:1px solid #222;border-radius:10px;overflow:hidden;background:#0d0d0d;}
+.group-hdr{display:flex;align-items:center;background:#1a1a1a;padding:10px 14px;gap:8px;}
+.group-hdr-name{flex:1;font-size:14px;font-weight:700;color:#fff;}
+.icon-btn{background:transparent;border:none;color:#555;font-size:17px;cursor:pointer;padding:4px 8px;}
+.icon-btn:active{color:#fff;}
+.proc-row{display:flex;align-items:center;padding:9px 14px;border-top:1px solid #1a1a1a;gap:10px;}
+.proc-row:active{background:#111;}
+.proc-name{flex:1;font-size:14px;color:#ccc;}
+.shoot-btn{background:#1565C0;border:none;color:#fff;padding:6px 14px;border-radius:6px;
+  font-size:13px;cursor:pointer;font-family:inherit;flex-shrink:0;}
+.shoot-btn:active{background:#0D47A1;}
+
+/* ── GROUP EDIT ── */
+.preset-tabs{display:flex;gap:7px;flex-wrap:wrap;}
+.preset-tab{padding:7px 13px;background:#1a1a1a;border:1.5px solid #333;
+  border-radius:20px;color:#888;font-size:13px;cursor:pointer;font-family:inherit;}
+.preset-tab:active{background:#1565C0;border-color:#1565C0;color:#fff;}
+.proc-edit-list{display:flex;flex-direction:column;gap:2px;}
+.proc-edit-row{display:flex;align-items:center;background:#151515;border-radius:8px;
+  padding:9px 12px;gap:8px;}
+.proc-edit-name{flex:1;font-size:14px;color:#ccc;}
+.proc-del-btn{background:transparent;border:none;color:#555;font-size:16px;cursor:pointer;padding:2px 6px;}
+.add-proc-row{display:flex;gap:8px;}
+.add-proc-row input{flex:1;padding:10px 12px;background:#151515;border:1px solid #252525;
+  border-radius:8px;color:#fff;font-size:14px;font-family:inherit;-webkit-appearance:none;}
+.add-proc-row input:focus{outline:none;border-color:#1565C0;}
+.add-proc-btn{background:#2E7D32;border:none;color:#fff;padding:10px 16px;
+  border-radius:8px;font-size:14px;cursor:pointer;font-family:inherit;white-space:nowrap;}
+
+/* ── BB PREVIEW ── */
+.bb-preview-wrap{width:70%;margin:0 auto;}
 .bb-frame{background:#1A5C1A;border:2.5px solid #fff;border-radius:2px;overflow:hidden;
-  display:flex;flex-direction:column;width:70%;margin:0 auto;aspect-ratio:4/3;}
+  display:flex;flex-direction:column;aspect-ratio:4/3;}
 .bb-table{width:100%;border-collapse:collapse;flex-shrink:0;}
-.bb-table td{border:1px solid #fff;padding:5px 8px;font-size:12px;color:#fff;}
-.bb-table .bl{width:52px;white-space:nowrap;font-size:11px;}
+.bb-table td{border:1px solid #fff;padding:5px 8px;font-size:11px;color:#fff;}
+.bb-table .bl{width:50px;white-space:nowrap;}
 .bb-table .bv{font-weight:700;}
 .bb-proc-area{flex:1;display:flex;align-items:center;justify-content:center;
   color:#fff;font-weight:700;padding:5px;text-align:center;
-  border-top:1px solid #fff;word-break:break-all;line-height:1.3;}
-
-.btn-go{width:100%;padding:15px;background:#1565C0;border:none;border-radius:12px;
-  color:#fff;font-size:16px;font-weight:700;font-family:inherit;cursor:pointer;}
-.btn-go:disabled{opacity:.3;}
-.btn-go:active{background:#0D47A1;}
-.btn-sec{width:100%;padding:12px;background:#1a1a1a;border:1px solid #2a2a2a;
-  border-radius:10px;color:#aaa;font-size:14px;font-family:inherit;cursor:pointer;}
-.gal-link{text-align:center;padding:6px;color:#42A5F5;font-size:13px;cursor:pointer;}
+  border-top:1px solid #fff;word-break:break-all;line-height:1.3;font-size:13px;}
 
 /* ── CAMERA SCREEN ── */
 .cam-top{display:flex;align-items:center;gap:8px;
   padding:max(env(safe-area-inset-top),10px) 14px 8px;
-  background:rgba(0,0,0,.75);backdrop-filter:blur(10px);flex-shrink:0;cursor:pointer;}
+  background:rgba(0,0,0,.78);backdrop-filter:blur(10px);flex-shrink:0;cursor:pointer;}
 .cam-name{font-size:13px;font-weight:700;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .cam-proc{font-size:12px;color:#42A5F5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:45%;}
 .cam-edit{font-size:11px;color:#555;white-space:nowrap;}
@@ -117,7 +139,7 @@ body{display:flex;flex-direction:column;}
   transition:transform .1s,background .1s;}
 .shutter-ring:active .shutter-inner{background:#ccc;transform:scale(.9);}
 
-/* ── GALLERY SCREEN ── */
+/* ── GALLERY ── */
 .gal-hdr{display:flex;align-items:center;gap:8px;
   padding:max(env(safe-area-inset-top),12px) 14px 10px;
   background:#111;flex-shrink:0;}
@@ -146,12 +168,11 @@ body{display:flex;flex-direction:column;}
   display:flex;align-items:flex-end;}
 .modal{background:#1a1a1a;border-radius:20px 20px 0 0;
   padding:20px 20px max(env(safe-area-inset-bottom),20px);
-  width:100%;display:flex;flex-direction:column;gap:12px;
-  max-height:80vh;overflow-y:auto;}
-.modal h2{font-size:16px;font-weight:700;text-align:center;flex-shrink:0;}
+  width:100%;display:flex;flex-direction:column;gap:12px;}
+.modal h2{font-size:16px;font-weight:700;text-align:center;}
 .modal .field input{background:#111;border-color:#333;}
 .modal-btn{width:100%;padding:13px;border:none;border-radius:10px;
-  font-size:15px;font-family:inherit;cursor:pointer;flex-shrink:0;}
+  font-size:15px;font-family:inherit;cursor:pointer;}
 .modal-save{background:#1565C0;color:#fff;}
 .modal-cancel{background:#2a2a2a;color:#aaa;}
 
@@ -170,64 +191,75 @@ body{display:flex;flex-direction:column;}
 </head>
 <body>
 
-<!-- ████ HOME SCREEN ████ -->
+<!-- ████ HOME: 案件一覧 ████ -->
 <div class="screen" id="sHome">
   <div class="hdr">
     <h1>📷 電子黒板カメラ</h1>
     <button class="hdr-btn" onclick="showGallery('home')">🖼 <span id="homGalCnt">0</span>枚</button>
     <button class="hdr-btn" onclick="openSettings()">⚙</button>
   </div>
-  <div class="home-body">
-    <button class="btn-new" onclick="newTemplate()">＋ 新しい黒板を作成</button>
-    <div class="sec-label">保存済みの黒板</div>
-    <div id="tplList"></div>
-    <div class="tpl-empty hidden" id="tplEmpty">まだ保存された黒板がありません</div>
+  <div class="body">
+    <button class="btn-new" onclick="addProject()">＋ 新しい案件を追加</button>
+    <div class="sec-label">案件一覧</div>
+    <div id="projList"></div>
+    <div class="empty-msg hidden" id="projEmpty">案件がありません</div>
   </div>
 </div>
 
-<!-- ████ EDIT SCREEN ████ -->
-<div class="screen hidden" id="sEdit">
+<!-- ████ PROJECT: 案件詳細 ████ -->
+<div class="screen hidden" id="sProject">
   <div class="hdr">
     <button class="hdr-btn" onclick="showHome()">← 戻る</button>
-    <h1 id="editTitle">黒板を作成</h1>
+    <h1 id="projTitle"></h1>
+    <button class="hdr-btn" onclick="editProjectName()">✏ 編集</button>
   </div>
-  <div class="edit-body">
-    <div class="field">
-      <label>工事件名</label>
-      <input type="text" id="nameInp" placeholder="例：○○地区配管工事" oninput="updatePreview()">
-    </div>
-    <div class="field">
-      <label>工種 / 工程</label>
-      <input type="text" id="procInp" placeholder="例：着工前" list="procDL" oninput="updatePreview()">
-      <datalist id="procDL"></datalist>
-      <div class="hint">↑ 入力すると候補が表示されます</div>
-    </div>
-    <div class="field">
-      <label>黒板プレビュー</label>
-      <div class="bb-frame">
-        <table class="bb-table">
-          <tr><td class="bl">工事名</td><td class="bv" id="pv_n">—</td></tr>
-          <tr><td class="bl">撮影日</td><td class="bv" id="pv_d"></td></tr>
-        </table>
-        <div class="bb-proc-area" id="pv_p">—</div>
-      </div>
-    </div>
-    <div class="gal-link hidden" id="galLink" onclick="showGallery('edit')">
-      🖼 撮影済み写真（<span id="galLinkCnt">0</span>枚）
-    </div>
-    <button class="btn-go" id="goBtn" disabled onclick="shootFromEdit()">📷 撮影する</button>
-    <button class="btn-sec" onclick="saveTemplate()">💾 テンプレートとして保存</button>
-    <button class="btn-sec" onclick="openAlbum()">🖼 アルバムから読み込む</button>
-    <input type="file" id="fileAlb" accept="image/*" onchange="onAlbumFile(event)">
+  <div class="body">
+    <button class="btn-new" onclick="addGroup()">＋ グループを追加</button>
+    <div id="groupList"></div>
+    <div class="empty-msg hidden" id="groupEmpty">グループがありません<br>上のボタンから追加してください</div>
   </div>
 </div>
 
-<!-- ████ CAMERA SCREEN ████ -->
+<!-- ████ GROUP EDIT: グループ編集 ████ -->
+<div class="screen hidden" id="sGroupEdit">
+  <div class="hdr">
+    <button class="hdr-btn" onclick="cancelGroupEdit()">← 戻る</button>
+    <h1 id="geTitle">グループを追加</h1>
+  </div>
+  <div class="body">
+    <div class="field">
+      <label>グループ名</label>
+      <input type="text" id="groupNameInp" placeholder="例：水道工事用　下水道工事用">
+    </div>
+    <div class="field">
+      <label>テンプレートから一括読み込み</label>
+      <div class="preset-tabs">
+        <button class="preset-tab" onclick="loadPreset(0)">給水（東京都）</button>
+        <button class="preset-tab" onclick="loadPreset(1)">給水（神奈川県）</button>
+        <button class="preset-tab" onclick="loadPreset(2)">下水道工事</button>
+        <button class="preset-tab" onclick="loadPreset(3)">桝交換</button>
+      </div>
+      <div class="hint">タップすると下の工種リストが自動入力されます</div>
+    </div>
+    <div class="field">
+      <label>工種リスト</label>
+      <div class="proc-edit-list" id="procEditList"></div>
+      <div class="add-proc-row" style="margin-top:8px">
+        <input type="text" id="addProcInp" placeholder="工種を入力して追加" list="procDL2">
+        <datalist id="procDL2"></datalist>
+        <button class="add-proc-btn" onclick="addProcItem()">＋ 追加</button>
+      </div>
+    </div>
+    <button class="btn-go" onclick="saveGroup()">💾 グループを保存</button>
+  </div>
+</div>
+
+<!-- ████ CAMERA ████ -->
 <div class="screen hidden" id="sCam">
   <div class="cam-top" onclick="backFromCam()">
     <span class="cam-name" id="cName"></span>
     <span class="cam-proc" id="cProc"></span>
-    <span class="cam-edit">▼ 変更</span>
+    <span class="cam-edit">▼ 戻る</span>
   </div>
   <div class="viewfinder" id="viewfinder">
     <video id="camVideo" autoplay playsinline muted></video>
@@ -258,7 +290,7 @@ body{display:flex;flex-direction:column;}
   </div>
 </div>
 
-<!-- ████ GALLERY SCREEN ████ -->
+<!-- ████ GALLERY ████ -->
 <div class="screen hidden" id="sGal">
   <div class="gal-hdr">
     <button onclick="backFromGallery()">← 戻る</button>
@@ -285,237 +317,290 @@ body{display:flex;flex-direction:column;}
 </div>
 
 <div class="toast" id="toast"></div>
+<input type="file" id="fileAlb" accept="image/*" onchange="onAlbumFile(event)">
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script>
-// ── 工種候補リスト ─────────────────────────────────────────────
-const ALL_PROCS = [...new Set([
-  '着工前','カッター工','使用材料','密着コア使用','穿孔刃',
-  '分岐部耐圧テスト(0.75MPa)','分岐部耐圧テスト（1.75MPa）','分岐部耐圧テスト（接写）',
-  '穿孔状況','コア挿入前','コア挿入','コア挿入後',
-  'サヤ菅設置','サヤ菅設置（モルタル充填）',
-  '宅内耐圧テスト','宅内耐圧テスト（接写）','宅内配管状況',
-  '床付け','分岐部配管状況','SUS配管状況','埋戻し工','仮復旧','設置完了',
-  '明示杭・メーターチャッキ・メーターボックス・散水栓',
-  '削孔状況','削孔穴','支管取付（接合材塗布）','支管取付',
-  '桝設置　床付け','桝設置　基礎','桝設置','桝設置　高さ（H）',
-  '取付管φ150配管状況','サヤ菅設置（モルタル）充填','仮復旧工','既設桝撤去材',
-])];
+// ── プリセット ──────────────────────────────────────────────────
+const PRESETS = [
+  { name:'給水（東京都）', procs:['着工前','カッター工','使用材料','密着コア使用','穿孔刃','分岐部耐圧テスト(0.75MPa)','分岐部耐圧テスト（接写）','穿孔状況','コア挿入前','コア挿入','コア挿入後','サヤ菅設置','サヤ菅設置（モルタル充填）','宅内耐圧テスト','宅内耐圧テスト（接写）','宅内配管状況','床付け','分岐部配管状況','SUS配管状況','埋戻し工','仮復旧','設置完了','明示杭・メーターチャッキ・メーターボックス・散水栓'] },
+  { name:'給水（神奈川県）', procs:['着工前','カッター工','使用材料','密着コア使用','分岐部耐圧テスト（1.75MPa）','分岐部耐圧テスト（接写）','穿孔状況','コア挿入前','コア挿入','コア挿入後','サヤ菅設置','サヤ菅設置（モルタル充填）','宅内耐圧テスト','宅内耐圧テスト（接写）','宅内配管状況','床付け','分岐部配管状況','SUS配管状況','埋戻し工','仮復旧'] },
+  { name:'下水道工事', procs:['着工前','カッター工','使用材料','削孔状況','削孔穴','支管取付（接合材塗布）','支管取付','桝設置　床付け','桝設置　基礎','桝設置','床付け','分岐部配管状況','取付管φ150配管状況','サヤ菅設置（モルタル）充填','埋戻し工','仮復旧工'] },
+  { name:'桝交換', procs:['着工前','既設桝撤去材','桝設置　床付け','桝設置　基礎','桝設置','桝設置　高さ（H）','設置完了'] },
+];
+const ALL_PROCS = [...new Set(PRESETS.flatMap(p=>p.procs))];
 
-// ── State ───────────────────────────────────────────────────────
-let stream = null, facingMode = 'environment';
-let photos = [], camFrom = 'home', db = null;
-let bbPos = { xFrac: 0.015, yFrac: null };
-let _drag = null, _dragCleanup = null;
-let editingId = null; // null=新規, id=編集中
+// ── State ──────────────────────────────────────────────────────
+let stream=null, facingMode='environment';
+let photos=[], db=null;
+let bbPos={xFrac:0.015, yFrac:null};
+let _drag=null, _dragCleanup=null;
+let camName='', camProc='';
+let camFrom='home'; // where to go back from camera
+let curProjId=null; // currently open project
+let geState=null;   // group edit state
 
 // ── DB ──────────────────────────────────────────────────────────
-function openDB() {
-  return new Promise((ok,ng) => {
-    const req = indexedDB.open('bbcam3',1);
-    req.onupgradeneeded = e => e.target.result.createObjectStore('photos',{keyPath:'id'});
-    req.onsuccess = e => { db=e.target.result; ok(); };
-    req.onerror = ng;
+function openDB(){
+  return new Promise((ok,ng)=>{
+    const req=indexedDB.open('bbcam4',1);
+    req.onupgradeneeded=e=>e.target.result.createObjectStore('photos',{keyPath:'id'});
+    req.onsuccess=e=>{db=e.target.result;ok();};
+    req.onerror=ng;
   });
 }
-const dbOp = (mode,fn) => new Promise(ok => { const tx=db.transaction('photos',mode); ok(fn(tx.objectStore('photos'))); });
-const dbPut   = obj => dbOp('readwrite', s=>s.put(obj));
-const dbClear = ()  => dbOp('readwrite', s=>s.clear());
-const dbGetAll= ()  => new Promise(ok => { const r=db.transaction('photos','readonly').objectStore('photos').getAll(); r.onsuccess=e=>ok(e.target.result||[]); });
+const dbPut=obj=>new Promise(ok=>{const tx=db.transaction('photos','readwrite');tx.objectStore('photos').put(obj);tx.oncomplete=ok;});
+const dbClear=()=>new Promise(ok=>{const tx=db.transaction('photos','readwrite');tx.objectStore('photos').clear();tx.oncomplete=ok;});
+const dbGetAll=()=>new Promise(ok=>{const r=db.transaction('photos','readonly').objectStore('photos').getAll();r.onsuccess=e=>ok(e.target.result||[]);});
 
-// ── Prefs / Templates ────────────────────────────────────────────
-const getPrefs = () => JSON.parse(localStorage.getItem('bbcam_p')||'{}');
-const setPrefs = p  => localStorage.setItem('bbcam_p', JSON.stringify(p));
-const getTemplates = () => JSON.parse(localStorage.getItem('bbcam_tpl')||'[]');
-const setTemplates = t  => localStorage.setItem('bbcam_tpl', JSON.stringify(t));
+// ── Storage ─────────────────────────────────────────────────────
+const getPrefs=()=>JSON.parse(localStorage.getItem('bbcam_p')||'{}');
+const setPrefs=p=>localStorage.setItem('bbcam_p',JSON.stringify(p));
+const getProjects=()=>JSON.parse(localStorage.getItem('bbcam_proj')||'[]');
+const saveProjects=p=>localStorage.setItem('bbcam_proj',JSON.stringify(p));
 
-// ── Helpers ──────────────────────────────────────────────────────
-const todayStr = () => { const d=new Date(); return `${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日`; };
-const getName  = () => document.getElementById('nameInp').value.trim();
-const getProc  = () => document.getElementById('procInp').value.trim();
-const show = id => document.getElementById(id).classList.remove('hidden');
-const hide = id => document.getElementById(id).classList.add('hidden');
+// ── Helpers ─────────────────────────────────────────────────────
+const todayStr=()=>{const d=new Date();return `${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日`;};
+const getName=()=>camName;
+const getProc=()=>camProc;
+const show=id=>document.getElementById(id).classList.remove('hidden');
+const hide=id=>document.getElementById(id).classList.add('hidden');
+const uid=()=>Date.now()+Math.random();
 
-// ── Init ─────────────────────────────────────────────────────────
-async function init() {
+// ── Init ────────────────────────────────────────────────────────
+async function init(){
   await openDB();
-  photos = await dbGetAll();
-
-  // 工種候補をdatalistにセット
-  const dl = document.getElementById('procDL');
-  dl.innerHTML = ALL_PROCS.map(p=>`<option value="${p}">`).join('');
-
-  const prefs = getPrefs();
-  if (prefs.contractor) document.getElementById('contractorInp').value = prefs.contractor;
-
+  photos=await dbGetAll();
+  const dl=document.getElementById('procDL2');
+  dl.innerHTML=ALL_PROCS.map(p=>`<option value="${p}">`).join('');
+  const prefs=getPrefs();
+  if(prefs.contractor) document.getElementById('contractorInp').value=prefs.contractor;
   updateGalCount();
-  renderHome();
-  updatePreview();
-
-  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw_camera.js').catch(()=>{});
+  renderProjects();
+  if('serviceWorker' in navigator) navigator.serviceWorker.register('sw_camera.js').catch(()=>{});
 }
 
-// ── Home ─────────────────────────────────────────────────────────
-function renderHome() {
-  const tpls = getTemplates();
-  const list = document.getElementById('tplList');
-  list.innerHTML = '';
-  if (!tpls.length) { show('tplEmpty'); return; }
-  hide('tplEmpty');
-  tpls.slice().reverse().forEach(t => {
-    const card = document.createElement('div');
-    card.className = 'tpl-card';
-    card.innerHTML = `
-      <div class="tpl-info" onclick="loadAndShoot(${t.id})">
-        <div class="tpl-koji">${t.kojiName||'（工事名なし）'}</div>
-        <div class="tpl-proc">${t.proc||'（工種なし）'}</div>
-      </div>
-      <div class="tpl-btns">
-        <button class="tpl-btn" onclick="editTemplate(${t.id})">✏</button>
-        <button class="tpl-btn" onclick="deleteTpl(${t.id})">🗑</button>
-        <button class="tpl-btn shoot" onclick="loadAndShoot(${t.id})">📷</button>
-      </div>`;
+// ── HOME: 案件一覧 ───────────────────────────────────────────────
+function renderProjects(){
+  const projs=getProjects(), list=document.getElementById('projList');
+  list.innerHTML='';
+  if(!projs.length){show('projEmpty');return;}
+  hide('projEmpty');
+  projs.forEach(p=>{
+    const totalProcs=p.groups.reduce((s,g)=>s+g.procs.length,0);
+    const card=document.createElement('div'); card.className='proj-card';
+    const info=document.createElement('div'); info.className='proj-info';
+    info.innerHTML=`<div class="proj-name">${p.name}</div><div class="proj-sub">${p.groups.length}グループ・${totalProcs}工種</div>`;
+    info.onclick=()=>openProject(p.id);
+    const arrow=document.createElement('div'); arrow.className='proj-arrow'; arrow.textContent='›';
+    arrow.onclick=()=>openProject(p.id);
+    const del=document.createElement('button'); del.className='proj-del'; del.textContent='🗑';
+    del.onclick=e=>{e.stopPropagation();deleteProject(p.id);};
+    card.appendChild(info); card.appendChild(del); card.appendChild(arrow);
     list.appendChild(card);
   });
 }
 
-function loadAndShoot(id) {
-  const t = getTemplates().find(x=>x.id===id);
-  if (!t) return;
-  document.getElementById('nameInp').value = t.kojiName || '';
-  document.getElementById('procInp').value = t.proc || '';
-  editingId = null;
-  updatePreview();
-  showCamera();
+function addProject(){
+  const name=prompt('案件名（工事件名）を入力してください');
+  if(!name||!name.trim()) return;
+  const projs=getProjects();
+  projs.push({id:uid(), name:name.trim(), groups:[]});
+  saveProjects(projs); renderProjects(); toast('案件を作成しました');
 }
 
-function newTemplate() {
-  document.getElementById('nameInp').value = '';
-  document.getElementById('procInp').value = '';
-  editingId = null;
-  document.getElementById('editTitle').textContent = '黒板を作成';
-  updatePreview();
-  showEdit();
+function deleteProject(id){
+  if(!confirm('この案件を削除しますか？')) return;
+  saveProjects(getProjects().filter(p=>p.id!==id));
+  renderProjects(); toast('削除しました');
 }
 
-function editTemplate(id) {
-  const t = getTemplates().find(x=>x.id===id);
-  if (!t) return;
-  document.getElementById('nameInp').value = t.kojiName || '';
-  document.getElementById('procInp').value = t.proc || '';
-  editingId = id;
-  document.getElementById('editTitle').textContent = '黒板を編集';
-  updatePreview();
-  showEdit();
+// ── PROJECT: 案件詳細 ────────────────────────────────────────────
+function openProject(id){
+  curProjId=id; renderProject();
+  hide('sHome'); show('sProject');
 }
 
-function saveTemplate() {
-  const kojiName = getName(), proc = getProc();
-  if (!kojiName && !proc) { toast('工事名か工種を入力してください'); return; }
-  const tpls = getTemplates();
-  if (editingId) {
-    const idx = tpls.findIndex(t=>t.id===editingId);
-    if (idx>=0) { tpls[idx].kojiName=kojiName; tpls[idx].proc=proc; tpls[idx].updatedAt=todayStr(); }
+function renderProject(){
+  const proj=getProjects().find(p=>p.id===curProjId); if(!proj) return;
+  document.getElementById('projTitle').textContent=proj.name;
+  const list=document.getElementById('groupList'); list.innerHTML='';
+  if(!proj.groups.length){show('groupEmpty');return;}
+  hide('groupEmpty');
+  proj.groups.forEach(g=>{
+    const sec=document.createElement('div'); sec.className='group-section';
+    const hdr=document.createElement('div'); hdr.className='group-hdr';
+    const nm=document.createElement('span'); nm.className='group-hdr-name'; nm.textContent=g.name;
+    const editBtn=document.createElement('button'); editBtn.className='icon-btn'; editBtn.textContent='✏';
+    editBtn.onclick=()=>editGroup(g.id);
+    const delBtn=document.createElement('button'); delBtn.className='icon-btn'; delBtn.textContent='🗑';
+    delBtn.onclick=()=>deleteGroup(g.id);
+    hdr.appendChild(nm); hdr.appendChild(editBtn); hdr.appendChild(delBtn);
+    sec.appendChild(hdr);
+    g.procs.forEach(proc=>{
+      const row=document.createElement('div'); row.className='proc-row';
+      const nm2=document.createElement('span'); nm2.className='proc-name'; nm2.textContent=proc;
+      const btn=document.createElement('button'); btn.className='shoot-btn'; btn.textContent='📷 撮影';
+      btn.onclick=()=>shootWith(proj.name, proc);
+      row.appendChild(nm2); row.appendChild(btn); sec.appendChild(row);
+    });
+    list.appendChild(sec);
+  });
+}
+
+function editProjectName(){
+  const proj=getProjects().find(p=>p.id===curProjId); if(!proj) return;
+  const name=prompt('案件名を変更してください', proj.name);
+  if(!name||!name.trim()) return;
+  const projs=getProjects();
+  projs.find(p=>p.id===curProjId).name=name.trim();
+  saveProjects(projs);
+  document.getElementById('projTitle').textContent=name.trim();
+  renderProjects(); toast('更新しました');
+}
+
+function showHome(){
+  stopCam();
+  hide('sProject'); hide('sGroupEdit'); hide('sCam'); hide('sGal'); show('sHome');
+  renderProjects();
+}
+
+// ── GROUP EDIT ───────────────────────────────────────────────────
+function addGroup(){
+  geState={projId:curProjId, groupId:null, procs:[]};
+  document.getElementById('groupNameInp').value='';
+  document.getElementById('geTitle').textContent='グループを追加';
+  renderProcEditList();
+  hide('sProject'); show('sGroupEdit');
+}
+
+function editGroup(groupId){
+  const proj=getProjects().find(p=>p.id===curProjId);
+  const g=proj.groups.find(g=>g.id===groupId);
+  geState={projId:curProjId, groupId, procs:[...g.procs]};
+  document.getElementById('groupNameInp').value=g.name;
+  document.getElementById('geTitle').textContent='グループを編集';
+  renderProcEditList();
+  hide('sProject'); show('sGroupEdit');
+}
+
+function deleteGroup(groupId){
+  if(!confirm('このグループを削除しますか？')) return;
+  const projs=getProjects();
+  const proj=projs.find(p=>p.id===curProjId);
+  proj.groups=proj.groups.filter(g=>g.id!==groupId);
+  saveProjects(projs); renderProject(); toast('削除しました');
+}
+
+function loadPreset(idx){
+  geState.procs=[...PRESETS[idx].procs];
+  renderProcEditList();
+  toast(`${PRESETS[idx].name}の工種を読み込みました`);
+}
+
+function renderProcEditList(){
+  const list=document.getElementById('procEditList'); list.innerHTML='';
+  geState.procs.forEach((proc,i)=>{
+    const row=document.createElement('div'); row.className='proc-edit-row';
+    const nm=document.createElement('span'); nm.className='proc-edit-name'; nm.textContent=proc;
+    const del=document.createElement('button'); del.className='proc-del-btn'; del.textContent='✕';
+    del.onclick=()=>{geState.procs.splice(i,1);renderProcEditList();};
+    row.appendChild(nm); row.appendChild(del); list.appendChild(row);
+  });
+}
+
+function addProcItem(){
+  const val=document.getElementById('addProcInp').value.trim();
+  if(!val){toast('工種を入力してください');return;}
+  geState.procs.push(val);
+  document.getElementById('addProcInp').value='';
+  renderProcEditList();
+}
+
+function saveGroup(){
+  const name=document.getElementById('groupNameInp').value.trim();
+  if(!name){toast('グループ名を入力してください');return;}
+  if(!geState.procs.length){toast('工種を1つ以上追加してください');return;}
+  const projs=getProjects();
+  const proj=projs.find(p=>p.id===geState.projId);
+  if(geState.groupId){
+    const g=proj.groups.find(g=>g.id===geState.groupId);
+    if(g){g.name=name;g.procs=geState.procs;}
   } else {
-    tpls.push({ id:Date.now(), kojiName, proc, updatedAt:todayStr() });
-    editingId = tpls[tpls.length-1].id;
-    document.getElementById('editTitle').textContent = '黒板を編集';
+    proj.groups.push({id:uid(), name, procs:geState.procs});
   }
-  setTemplates(tpls);
-  toast('💾 テンプレートを保存しました');
-  renderHome();
+  saveProjects(projs); toast('💾 保存しました');
+  hide('sGroupEdit'); show('sProject'); renderProject();
 }
 
-function deleteTpl(id) {
-  if (!confirm('このテンプレートを削除しますか？')) return;
-  setTemplates(getTemplates().filter(t=>t.id!==id));
-  renderHome();
-  toast('削除しました');
+function cancelGroupEdit(){
+  hide('sGroupEdit'); show('sProject');
 }
 
-// ── Screen nav ───────────────────────────────────────────────────
-function showHome() {
-  stopCam();
-  show('sHome'); hide('sEdit'); hide('sCam'); hide('sGal');
-  renderHome();
-  updateGalCount();
+// ── CAMERA ──────────────────────────────────────────────────────
+function shootWith(name, proc){
+  camName=name; camProc=proc; camFrom='project';
+  hide('sHome'); hide('sProject'); hide('sGroupEdit'); hide('sGal'); show('sCam');
+  updateOverlay(); initDrag(); startCam();
 }
-function showEdit() {
+
+function backFromCam(){
   stopCam();
-  show('sEdit'); hide('sHome'); hide('sCam'); hide('sGal');
-  updatePreview();
+  hide('sCam');
+  if(camFrom==='project') show('sProject');
+  else show('sHome');
 }
-async function showCamera() {
-  camFrom = 'edit';
-  show('sCam'); hide('sHome'); hide('sEdit'); hide('sGal');
-  updateOverlay();
-  initDrag();
-  await startCam();
-}
-function backFromCam() {
-  stopCam();
-  show('sEdit'); hide('sCam');
-}
-function showGallery(from) {
-  camFrom = from || 'home';
-  stopCam();
-  hide('sHome'); hide('sEdit'); hide('sCam'); show('sGal');
+
+function showGallery(from){
+  camFrom=from||'home'; stopCam();
+  hide('sHome');hide('sProject');hide('sGroupEdit');hide('sCam');show('sGal');
   renderGallery();
 }
-function backFromGallery() {
-  if (camFrom==='cam') showCamera();
-  else if (camFrom==='edit') showEdit();
-  else showHome();
-}
-function shootFromEdit() { showCamera(); }
 
-// ── Preview ──────────────────────────────────────────────────────
-function updatePreview() {
-  const n=getName(), p=getProc(), d=todayStr();
-  document.getElementById('pv_n').textContent = n||'—';
-  document.getElementById('pv_p').textContent = p||'—';
-  document.getElementById('pv_d').textContent = d;
-  document.getElementById('goBtn').disabled = !p;
-  const cnt = photos.length;
-  document.getElementById('galLinkCnt').textContent = cnt;
-  document.getElementById('galLink').classList.toggle('hidden', cnt===0);
+function backFromGallery(){
+  hide('sGal');
+  if(camFrom==='cam'){show('sCam');startCam();}
+  else if(camFrom==='project'){show('sProject');}
+  else show('sHome');
 }
-function updateOverlay() {
+
+function updateOverlay(){
   const n=getName(), p=getProc(), d=todayStr();
-  document.getElementById('ov_n').textContent = n||'—';
-  document.getElementById('ov_p').textContent = p;
-  document.getElementById('ov_d').textContent = d;
-  document.getElementById('cName').textContent = n||'（工事名なし）';
-  document.getElementById('cProc').textContent = p;
-  const bbW = document.getElementById('bbOv').offsetWidth || 160;
-  document.getElementById('ov_p').style.fontSize = Math.max(11,Math.round(bbW*0.13))+'px';
+  document.getElementById('ov_n').textContent=n||'—';
+  document.getElementById('ov_p').textContent=p;
+  document.getElementById('ov_d').textContent=d;
+  document.getElementById('cName').textContent=n||'（工事名なし）';
+  document.getElementById('cProc').textContent=p;
+  const bw=document.getElementById('bbOv').offsetWidth||160;
+  document.getElementById('ov_p').style.fontSize=Math.max(11,Math.round(bw*0.13))+'px';
 }
-function updateGalCount() {
+
+function updateGalCount(){
   const n=photos.length;
-  document.getElementById('galBadge').textContent = n;
-  document.getElementById('homGalCnt').textContent = n;
-  document.getElementById('galTotal').textContent = n;
+  document.getElementById('galBadge').textContent=n;
+  document.getElementById('homGalCnt').textContent=n;
+  document.getElementById('galTotal').textContent=n;
 }
 
-// ── Drag blackboard ───────────────────────────────────────────────
-function initDrag() {
-  const el=document.getElementById('bbOv'), vf=document.getElementById('viewfinder');
-  el.style.left='10px'; el.style.bottom='10px'; el.style.top='auto'; el.style.right='auto';
-  bbPos = { xFrac:0.015, yFrac:null };
-  if (_dragCleanup) _dragCleanup();
-  const onMove = e => {
-    if (!_drag) return; e.preventDefault();
-    const t=e.touches?e.touches[0]:e, vfR=vf.getBoundingClientRect();
-    let nx=_drag.ex+(t.clientX-_drag.cx), ny=_drag.ey+(t.clientY-_drag.cy);
+// ── DRAG ────────────────────────────────────────────────────────
+function initDrag(){
+  const el=document.getElementById('bbOv'),vf=document.getElementById('viewfinder');
+  el.style.left='10px';el.style.bottom='10px';el.style.top='auto';el.style.right='auto';
+  bbPos={xFrac:0.015,yFrac:null};
+  if(_dragCleanup)_dragCleanup();
+  const onMove=e=>{
+    if(!_drag)return;e.preventDefault();
+    const t=e.touches?e.touches[0]:e,vfR=vf.getBoundingClientRect();
+    let nx=_drag.ex+(t.clientX-_drag.cx),ny=_drag.ey+(t.clientY-_drag.cy);
     nx=Math.max(0,Math.min(vfR.width-el.offsetWidth,nx));
     ny=Math.max(0,Math.min(vfR.height-el.offsetHeight,ny));
-    el.style.left=nx+'px'; el.style.top=ny+'px'; el.style.bottom='auto';
-    bbPos={xFrac:nx/vfR.width, yFrac:ny/vfR.height};
-    _drag.cx=t.clientX; _drag.cy=t.clientY; _drag.ex=nx; _drag.ey=ny;
+    el.style.left=nx+'px';el.style.top=ny+'px';el.style.bottom='auto';
+    bbPos={xFrac:nx/vfR.width,yFrac:ny/vfR.height};
+    _drag.cx=t.clientX;_drag.cy=t.clientY;_drag.ex=nx;_drag.ey=ny;
   };
-  const onEnd=()=>{ _drag=null; };
+  const onEnd=()=>{_drag=null;};
   const onStart=e=>{
-    const t=e.touches?e.touches[0]:e, r=el.getBoundingClientRect(), vfR=vf.getBoundingClientRect();
+    const t=e.touches?e.touches[0]:e,r=el.getBoundingClientRect(),vfR=vf.getBoundingClientRect();
     _drag={cx:t.clientX,cy:t.clientY,ex:r.left-vfR.left,ey:r.top-vfR.top};
   };
   el.addEventListener('touchstart',onStart,{passive:true});
@@ -525,263 +610,184 @@ function initDrag() {
   document.addEventListener('mousemove',onMove);
   document.addEventListener('mouseup',onEnd);
   _dragCleanup=()=>{
-    el.removeEventListener('touchstart',onStart);
-    el.removeEventListener('mousedown',onStart);
-    document.removeEventListener('touchmove',onMove);
-    document.removeEventListener('touchend',onEnd);
-    document.removeEventListener('mousemove',onMove);
-    document.removeEventListener('mouseup',onEnd);
+    el.removeEventListener('touchstart',onStart);el.removeEventListener('mousedown',onStart);
+    document.removeEventListener('touchmove',onMove);document.removeEventListener('touchend',onEnd);
+    document.removeEventListener('mousemove',onMove);document.removeEventListener('mouseup',onEnd);
   };
 }
 
-// ── Camera ────────────────────────────────────────────────────────
-async function startCam() {
-  show('camVideo'); hide('fallbackArea');
-  try {
-    stream = await navigator.mediaDevices.getUserMedia({
-      video:{facingMode, width:{ideal:1920}, height:{ideal:1080}}
-    });
-    document.getElementById('camVideo').srcObject = stream;
-  } catch(e) { hide('camVideo'); show('fallbackArea'); }
+async function startCam(){
+  show('camVideo');hide('fallbackArea');
+  try{
+    stream=await navigator.mediaDevices.getUserMedia({video:{facingMode,width:{ideal:1920},height:{ideal:1080}}});
+    document.getElementById('camVideo').srcObject=stream;
+  }catch(e){hide('camVideo');show('fallbackArea');}
 }
-function stopCam() {
-  if (stream) { stream.getTracks().forEach(t=>t.stop()); stream=null; }
-  document.getElementById('camVideo').srcObject = null;
+function stopCam(){
+  if(stream){stream.getTracks().forEach(t=>t.stop());stream=null;}
+  document.getElementById('camVideo').srcObject=null;
 }
-async function flipCam() {
-  facingMode = facingMode==='environment'?'user':'environment';
-  stopCam(); await startCam();
-}
+async function flipCam(){facingMode=facingMode==='environment'?'user':'environment';stopCam();await startCam();}
 
-// ── Shoot ─────────────────────────────────────────────────────────
-async function shoot() {
+// ── SHOOT ────────────────────────────────────────────────────────
+async function shoot(){
   const video=document.getElementById('camVideo');
-  if (!video.srcObject||!video.videoWidth) return;
-  triggerFlash();
-  await addPhoto(captureVideo(video));
+  if(!video.srcObject||!video.videoWidth)return;
+  triggerFlash(); await addPhoto(captureVideo(video));
 }
-function triggerFlash() {
+function triggerFlash(){
   const f=document.getElementById('flash');
-  f.style.animation='none'; f.offsetHeight; f.style.animation='flashAnim .35s ease-out forwards';
+  f.style.animation='none';f.offsetHeight;f.style.animation='flashAnim .35s ease-out forwards';
 }
-function captureVideo(video) {
-  const w=video.videoWidth, h=video.videoHeight;
-  const c=document.createElement('canvas'); c.width=w; c.height=h;
-  const ctx=c.getContext('2d'); ctx.drawImage(video,0,0,w,h);
-  drawBlackboard(ctx,w,h); return c.toDataURL('image/jpeg',.90);
+function captureVideo(video){
+  const w=video.videoWidth,h=video.videoHeight;
+  const c=document.createElement('canvas');c.width=w;c.height=h;
+  const ctx=c.getContext('2d');ctx.drawImage(video,0,0,w,h);
+  drawBlackboard(ctx,w,h);return c.toDataURL('image/jpeg',.90);
 }
-async function onCapFile(e) {
-  const file=e.target.files[0]; e.target.value=''; if(!file)return;
+async function onCapFile(e){
+  const file=e.target.files[0];e.target.value='';if(!file)return;
   showLoader();
-  try {
-    const raw=await readFile(file), resized=await resizeDataUrl(raw,1920);
-    const composited=await compositeBlackboard(resized); await addPhoto(composited);
-  } catch(err){toast('エラー: '+err.message);}
+  try{const raw=await readFile(file),r=await resizeDataUrl(raw,1920);await addPhoto(await compositeBlackboard(r));}
+  catch(err){toast('エラー: '+err.message);}
   hideLoader();
 }
-async function onAlbumFile(e) {
-  const file=e.target.files[0]; e.target.value=''; if(!file)return;
+async function onAlbumFile(e){
+  const file=e.target.files[0];e.target.value='';if(!file)return;
   showLoader();
-  try {
-    const raw=await readFile(file), resized=await resizeDataUrl(raw,1920);
-    const composited=await compositeBlackboard(resized); await addPhoto(composited); toast('読み込みました');
-  } catch(err){toast('エラー: '+err.message);}
+  try{const raw=await readFile(file),r=await resizeDataUrl(raw,1920);await addPhoto(await compositeBlackboard(r));toast('読み込みました');}
+  catch(err){toast('エラー: '+err.message);}
   hideLoader();
 }
-function openAlbum(){ document.getElementById('fileAlb').click(); }
-async function addPhoto(dataUrl) {
-  const photo={id:Date.now()+Math.random(), dataUrl, proc:getProc(), name:getName(), date:todayStr()};
-  photos.push(photo); await dbPut(photo); updateGalCount(); updatePreview();
-  autoSave(photo); toast(`📷 保存しました（${photos.length}枚目）`);
+async function addPhoto(dataUrl){
+  const photo={id:uid(),dataUrl,proc:getProc(),name:getName(),date:todayStr()};
+  photos.push(photo);await dbPut(photo);updateGalCount();
+  autoSave(photo);toast(`📷 保存しました（${photos.length}枚目）`);
 }
-function autoSave(photo) {
+function autoSave(photo){
   const proc=photo.proc.replace(/[\\/:*?"<>|]/g,'_');
   const date=(photo.date||'').replace(/[年月]/g,'-').replace('日','');
-  saveToDevice(photo.dataUrl, `IMG_${String(photos.length).padStart(3,'0')}_${proc}_${date}.jpg`);
+  saveToDevice(photo.dataUrl,`IMG_${String(photos.length).padStart(3,'0')}_${proc}_${date}.jpg`);
 }
-function saveToDevice(dataUrl, filename) {
-  try {
-    const a=document.createElement('a'); a.href=dataUrl; a.download=filename;
-    document.body.appendChild(a); a.click(); document.body.removeChild(a);
-  } catch(e){}
+function saveToDevice(dataUrl,filename){
+  try{const a=document.createElement('a');a.href=dataUrl;a.download=filename;document.body.appendChild(a);a.click();document.body.removeChild(a);}catch(e){}
 }
 
-// ── Image processing ──────────────────────────────────────────────
+// ── IMAGE UTILS ─────────────────────────────────────────────────
 const readFile=f=>new Promise((ok,ng)=>{const r=new FileReader();r.onload=e=>ok(e.target.result);r.onerror=ng;r.readAsDataURL(f);});
-const resizeDataUrl=(dataUrl,maxPx)=>new Promise(ok=>{
-  const img=new Image(); img.onload=()=>{
-    let w=img.width,h=img.height;
-    if(w>maxPx||h>maxPx){if(w>h){h=Math.round(h*maxPx/w);w=maxPx;}else{w=Math.round(w*maxPx/h);h=maxPx;}}
-    const c=document.createElement('canvas');c.width=w;c.height=h;
-    c.getContext('2d').drawImage(img,0,0,w,h);ok(c.toDataURL('image/jpeg',.88));
-  };img.src=dataUrl;
-});
-const compositeBlackboard=dataUrl=>new Promise(ok=>{
-  const img=new Image();img.onload=()=>{
-    const w=img.width,h=img.height;
-    const c=document.createElement('canvas');c.width=w;c.height=h;
-    const ctx=c.getContext('2d');ctx.drawImage(img,0,0);
-    drawBlackboard(ctx,w,h);ok(c.toDataURL('image/jpeg',.90));
-  };img.src=dataUrl;
-});
+const resizeDataUrl=(d,m)=>new Promise(ok=>{const i=new Image();i.onload=()=>{let w=i.width,h=i.height;if(w>m||h>m){if(w>h){h=Math.round(h*m/w);w=m;}else{w=Math.round(w*m/h);h=m;}}const c=document.createElement('canvas');c.width=w;c.height=h;c.getContext('2d').drawImage(i,0,0,w,h);ok(c.toDataURL('image/jpeg',.88));};i.src=d;});
+const compositeBlackboard=d=>new Promise(ok=>{const i=new Image();i.onload=()=>{const w=i.width,h=i.height,c=document.createElement('canvas');c.width=w;c.height=h;const ctx=c.getContext('2d');ctx.drawImage(i,0,0);drawBlackboard(ctx,w,h);ok(c.toDataURL('image/jpeg',.90));};i.src=d;});
 
-// ── Blackboard draw ───────────────────────────────────────────────
-function drawBlackboard(ctx, cw, ch) {
+// ── BLACKBOARD DRAW ──────────────────────────────────────────────
+function drawBlackboard(ctx,cw,ch){
   const prefs=getPrefs();
-  const kojiName=getName(), proc=getProc(), dateStr=todayStr();
-
-  // 4:3 横長
-  const bw=Math.round(cw*0.50);
-  const bh=Math.round(bw*3/4);
-  const bx=bbPos.yFrac!==null ? Math.round(cw*bbPos.xFrac) : Math.round(cw*0.015);
-  const by=bbPos.yFrac!==null ? Math.round(ch*bbPos.yFrac) : ch-bh-Math.round(ch*0.015);
-  const lw=Math.round(bw*0.27);
-  const brd=Math.max(2,Math.round(cw*0.002));
-
-  // 工事名が1行に収まるか判定
+  const kojiName=getName(),proc=getProc(),dateStr=todayStr();
+  const bw=Math.round(cw*0.50), bh=Math.round(bw*3/4);
+  const bx=bbPos.yFrac!==null?Math.round(cw*bbPos.xFrac):Math.round(cw*0.015);
+  const by=bbPos.yFrac!==null?Math.round(ch*bbPos.yFrac):ch-bh-Math.round(ch*0.015);
+  const lw=Math.round(bw*0.27), brd=Math.max(2,Math.round(cw*0.002));
   const testFs=Math.round(bh*0.13);
   ctx.font=`bold ${testFs}px Meiryo,sans-serif`;
   const maxValW=bw-lw-testFs*0.4;
-  const nameNeedsWrap=ctx.measureText(kojiName).width>maxValW;
-
-  // 行定義
+  const nameWrap=ctx.measureText(kojiName).width>maxValW;
   const rows=[
-    {lbl:'工事名', val:kojiName, wrap:nameNeedsWrap},
+    {lbl:'工事名',val:kojiName,wrap:nameWrap},
     prefs.contractor?{lbl:'施工者',val:prefs.contractor,wrap:false}:null,
-    {lbl:'撮影日', val:dateStr, wrap:false},
+    {lbl:'撮影日',val:dateStr,wrap:false},
   ].filter(Boolean);
-
-  const singleH=Math.round(bh*0.16);
-  const totalH=rows.reduce((s,r)=>s+(r.wrap?singleH*2:singleH),0);
+  const sH=Math.round(bh*0.16);
+  const totalH=rows.reduce((s,r)=>s+(r.wrap?sH*2:sH),0);
   const procH=bh-totalH;
 
-  // 背景・外枠
-  ctx.fillStyle='#1A5C1A'; ctx.fillRect(bx,by,bw,bh);
-  ctx.strokeStyle='#fff'; ctx.lineWidth=brd*2;
-  ctx.strokeRect(bx+brd,by+brd,bw-brd*2,bh-brd*2);
+  ctx.fillStyle='#1A5C1A';ctx.fillRect(bx,by,bw,bh);
+  ctx.strokeStyle='#fff';ctx.lineWidth=brd*2;ctx.strokeRect(bx+brd,by+brd,bw-brd*2,bh-brd*2);
 
-  // 各行描画
   let curY=by;
   rows.forEach((row,i)=>{
-    const rh=row.wrap?singleH*2:singleH;
+    const rh=row.wrap?sH*2:sH;
     if(i>0){ctx.strokeStyle='#fff';ctx.lineWidth=brd;ctx.beginPath();ctx.moveTo(bx,curY);ctx.lineTo(bx+bw,curY);ctx.stroke();}
     ctx.strokeStyle='#fff';ctx.lineWidth=brd;ctx.beginPath();ctx.moveTo(bx+lw,curY);ctx.lineTo(bx+lw,curY+rh);ctx.stroke();
-    const fs=Math.round(singleH*0.50);
+    const fs=Math.round(sH*0.50);
     ctx.fillStyle='#fff';ctx.textBaseline='middle';ctx.textAlign='center';
-    ctx.font=`${fs}px Meiryo,sans-serif`;
-    ctx.fillText(row.lbl,bx+lw/2,curY+rh/2);
+    ctx.font=`${fs}px Meiryo,sans-serif`;ctx.fillText(row.lbl,bx+lw/2,curY+rh/2);
     ctx.textAlign='left';
     if(row.wrap){
-      // 2行に分割
-      const wFs=Math.round(fs*0.85);
-      ctx.font=`bold ${wFs}px Meiryo,sans-serif`;
+      const wFs=Math.round(fs*0.85);ctx.font=`bold ${wFs}px Meiryo,sans-serif`;
       const chars=Array.from(row.val);
       let sp=Math.ceil(chars.length/2);
-      while(sp<chars.length && ctx.measureText(chars.slice(0,sp).join('')).width>maxValW) sp++;
-      const l1=chars.slice(0,sp).join(''), l2=chars.slice(sp).join('');
-      ctx.fillText(l1,bx+lw+wFs*0.2,curY+rh*0.32);
-      ctx.fillText(l2,bx+lw+wFs*0.2,curY+rh*0.72);
+      while(sp<chars.length&&ctx.measureText(chars.slice(0,sp).join('')).width>maxValW)sp++;
+      const l1=chars.slice(0,sp).join(''),l2=chars.slice(sp).join('');
+      ctx.fillText(l1,bx+lw+wFs*0.2,curY+rh*0.32);ctx.fillText(l2,bx+lw+wFs*0.2,curY+rh*0.72);
     } else {
       ctx.font=`bold ${fs}px Meiryo,sans-serif`;
       let val=row.val;
-      while(ctx.measureText(val).width>maxValW&&val.length>1) val=val.slice(0,-1);
-      if(val!==row.val) val+='…';
+      while(ctx.measureText(val).width>maxValW&&val.length>1)val=val.slice(0,-1);
+      if(val!==row.val)val+='…';
       ctx.fillText(val,bx+lw+fs*0.2,curY+rh/2);
     }
     curY+=rh;
   });
-
-  // 工種区切り
   ctx.strokeStyle='#fff';ctx.lineWidth=brd;ctx.beginPath();ctx.moveTo(bx,curY);ctx.lineTo(bx+bw,curY);ctx.stroke();
-
-  // 工種テキスト（大きく中央）
   ctx.textAlign='center';ctx.textBaseline='middle';
-  let pFs=Math.round(procH*0.30);
-  ctx.font=`bold ${pFs}px Meiryo,sans-serif`;
-  ctx.fillStyle='#fff';
+  let pFs=Math.round(procH*0.30);ctx.font=`bold ${pFs}px Meiryo,sans-serif`;ctx.fillStyle='#fff';
   if(ctx.measureText(proc).width>bw*0.88){
-    pFs=Math.round(procH*0.22);
-    ctx.font=`bold ${pFs}px Meiryo,sans-serif`;
+    pFs=Math.round(procH*0.22);ctx.font=`bold ${pFs}px Meiryo,sans-serif`;
     const mid=Math.ceil(proc.length/2);
-    ctx.fillText(proc.slice(0,mid),bx+bw/2,curY+procH*0.35);
-    ctx.fillText(proc.slice(mid),  bx+bw/2,curY+procH*0.68);
-  } else {
-    ctx.fillText(proc,bx+bw/2,curY+procH/2);
-  }
+    ctx.fillText(proc.slice(0,mid),bx+bw/2,curY+procH*0.35);ctx.fillText(proc.slice(mid),bx+bw/2,curY+procH*0.68);
+  } else {ctx.fillText(proc,bx+bw/2,curY+procH/2);}
 }
 
-// ── Gallery ───────────────────────────────────────────────────────
-function renderGallery() {
+// ── GALLERY ─────────────────────────────────────────────────────
+function renderGallery(){
   const cnt=document.getElementById('galContent');
   document.getElementById('galTotal').textContent=photos.length;
   if(!photos.length){cnt.innerHTML='<div class="gal-empty"><span>📷</span><p>まだ写真がありません</p></div>';return;}
-  const grid=document.createElement('div'); grid.className='gal-grid';
+  const grid=document.createElement('div');grid.className='gal-grid';
   photos.slice().reverse().forEach(p=>{
-    const div=document.createElement('div'); div.className='gal-item';
-    const img=document.createElement('img'); img.src=p.dataUrl; img.loading='lazy';
-    const proc=document.createElement('div'); proc.className='gal-proc'; proc.textContent=p.proc;
-    const btn=document.createElement('div'); btn.className='gal-dl'; btn.textContent='⬇ 保存';
+    const div=document.createElement('div');div.className='gal-item';
+    const img=document.createElement('img');img.src=p.dataUrl;img.loading='lazy';
+    const proc=document.createElement('div');proc.className='gal-proc';proc.textContent=p.proc;
+    const btn=document.createElement('div');btn.className='gal-dl';btn.textContent='⬇ 保存';
     btn.addEventListener('click',e=>{e.stopPropagation();dlPhoto(p);});
     div.appendChild(img);div.appendChild(proc);div.appendChild(btn);grid.appendChild(div);
   });
   cnt.innerHTML='';cnt.appendChild(grid);
 }
-function dlPhoto(p) {
+function dlPhoto(p){
   const proc=p.proc.replace(/[\\/:*?"<>|]/g,'_');
   const date=(p.date||'').replace(/[年月]/g,'-').replace('日','');
-  saveToDevice(p.dataUrl,`工事写真_${proc}_${date}.jpg`);
-  toast('保存しました');
+  saveToDevice(p.dataUrl,`工事写真_${proc}_${date}.jpg`);toast('保存しました');
 }
-async function downloadAll() {
+async function downloadAll(){
   if(!photos.length){toast('写真がありません');return;}
   if(typeof JSZip==='undefined'){photos.forEach(p=>dlPhoto(p));return;}
   showLoader('ZIPを作成中...');
-  try {
+  try{
     const zip=new JSZip();
-    photos.forEach((p,i)=>{
-      const proc=p.proc.replace(/[\\/:*?"<>|]/g,'_');
-      zip.file(`${String(i+1).padStart(3,'0')}_${proc}.jpg`,p.dataUrl.split(',')[1],{base64:true});
-    });
+    photos.forEach((p,i)=>{const proc=p.proc.replace(/[\\/:*?"<>|]/g,'_');zip.file(`${String(i+1).padStart(3,'0')}_${proc}.jpg`,p.dataUrl.split(',')[1],{base64:true});});
     const blob=await zip.generateAsync({type:'blob'});
     const url=URL.createObjectURL(blob);
-    const a=document.createElement('a');a.href=url;
-    a.download=`工事写真_${new Date().toLocaleDateString('ja-JP').replace(/\//g,'-')}.zip`;
+    const a=document.createElement('a');a.href=url;a.download=`工事写真_${new Date().toLocaleDateString('ja-JP').replace(/\//g,'-')}.zip`;
     document.body.appendChild(a);a.click();document.body.removeChild(a);
-    setTimeout(()=>URL.revokeObjectURL(url),5000);
-    toast(`${photos.length}枚をZIPで保存しました`);
+    setTimeout(()=>URL.revokeObjectURL(url),5000);toast(`${photos.length}枚をZIPで保存しました`);
   }catch(e){toast('エラー: '+e.message);}
   hideLoader();
 }
-async function clearAll() {
+async function clearAll(){
   if(!photos.length){toast('写真がありません');return;}
   if(!confirm(`${photos.length}枚の写真を全て削除しますか？`))return;
-  await dbClear();photos=[];updateGalCount();renderGallery();updatePreview();toast('全て削除しました');
+  await dbClear();photos=[];updateGalCount();renderGallery();toast('全て削除しました');
 }
 
-// ── Settings ──────────────────────────────────────────────────────
-function openSettings(){
-  document.getElementById('contractorInp').value=getPrefs().contractor||'';
-  show('settingsModal');
-}
-function closeSettings(){ hide('settingsModal'); }
-function saveSettings(){
-  const p=getPrefs(); p.contractor=document.getElementById('contractorInp').value.trim();
-  setPrefs(p); closeSettings(); toast('設定を保存しました');
-}
+// ── SETTINGS ────────────────────────────────────────────────────
+function openSettings(){document.getElementById('contractorInp').value=getPrefs().contractor||'';show('settingsModal');}
+function closeSettings(){hide('settingsModal');}
+function saveSettings(){const p=getPrefs();p.contractor=document.getElementById('contractorInp').value.trim();setPrefs(p);closeSettings();toast('設定を保存しました');}
 
-// ── Toast / Loader ────────────────────────────────────────────────
-function toast(msg,dur=2800){
-  const t=document.getElementById('toast');
-  t.textContent=msg;t.classList.add('show');
-  clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),dur);
-}
+// ── TOAST / LOADER ───────────────────────────────────────────────
+function toast(msg,dur=2800){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),dur);}
 let loaderEl=null;
-function showLoader(msg='処理中...'){
-  if(loaderEl)return;
-  loaderEl=document.createElement('div');loaderEl.className='loader';
-  loaderEl.innerHTML=`<div class="spin"></div><span>${msg}</span>`;
-  document.body.appendChild(loaderEl);
-}
+function showLoader(msg='処理中...'){if(loaderEl)return;loaderEl=document.createElement('div');loaderEl.className='loader';loaderEl.innerHTML=`<div class="spin"></div><span>${msg}</span>`;document.body.appendChild(loaderEl);}
 function hideLoader(){if(loaderEl){loaderEl.remove();loaderEl=null;}}
 
 init();
