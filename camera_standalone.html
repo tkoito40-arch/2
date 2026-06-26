@@ -48,7 +48,7 @@ body{display:flex;flex-direction:column;}
 
 /* BB preview */
 .bb-frame{background:#1A5C1A;border:2.5px solid #fff;border-radius:2px;overflow:hidden;
-  display:flex;flex-direction:column;width:50%;margin:0 auto;aspect-ratio:3/4;}
+  display:flex;flex-direction:column;width:50%;margin:0 auto;aspect-ratio:4/3;}
 .bb-table{width:100%;border-collapse:collapse;}
 .bb-table td{border:1px solid #fff;padding:6px 9px;font-size:13px;color:#fff;}
 .bb-table .bl{width:68px;white-space:nowrap;}
@@ -76,7 +76,7 @@ body{display:flex;flex-direction:column;}
 
 /* Live BB overlay */
 .bb-ov{position:absolute;bottom:10px;left:10px;width:40%;z-index:5;
-  aspect-ratio:3/4;background:#1A5C1A;border:2px solid #fff;border-radius:2px;
+  aspect-ratio:4/3;background:#1A5C1A;border:2px solid #fff;border-radius:2px;
   opacity:.92;cursor:grab;touch-action:none;display:flex;flex-direction:column;
   user-select:none;-webkit-user-select:none;}
 .bb-ov:active{cursor:grabbing;}
@@ -617,8 +617,8 @@ function drawBlackboard(ctx, cw, ch) {
   ].filter(Boolean);
 
   // 3:4 サイズ計算
-  const bw  = Math.round(cw * 0.40);
-  const bh  = Math.round(bw * 4 / 3);
+  const bw  = Math.round(cw * 0.50);
+  const bh  = Math.round(bw * 3 / 4);
   const bx  = bbPos.yFrac !== null ? Math.round(cw * bbPos.xFrac) : Math.round(cw * 0.015);
   const by  = bbPos.yFrac !== null ? Math.round(ch * bbPos.yFrac) : ch - bh - Math.round(ch * 0.015);
   const rowH = Math.round(bh * 0.17);
