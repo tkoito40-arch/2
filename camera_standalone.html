@@ -2142,9 +2142,7 @@ function _buildFillItems(depth,pitch,paveId,projPave,dpValues){
       items.push({type:'pave',name:`${layer.name}（H=${lh}mm）`});
       lh-=100;
     }
-    items.push(layerTop===0
-      ?{type:'pave',name:'仮復旧'}
-      :{type:'pave',name:`${layer.name}（H=${layerTop}mm）`});
+    if(layerTop>0) items.push({type:'pave',name:`${layer.name}（H=${layerTop}mm）`});
     cumH=layerTop;
   });
 
