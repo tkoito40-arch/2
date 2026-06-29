@@ -491,6 +491,25 @@ body{display:flex;flex-direction:column;}
       <label>場所</label>
       <input type="text" id="pmLocation" placeholder="例：○○市○○町1-2-3">
     </div>
+    <div class="field">
+      <label>舗装構成（任意）</label>
+      <input type="text" id="pmPaveType" placeholder="例：3号復旧" style="width:100%;margin-bottom:8px;">
+      <div style="display:flex;gap:8px;">
+        <div style="flex:1">
+          <div style="font-size:10px;color:#555;margin-bottom:4px">下層路盤</div>
+          <div class="fill-h-row"><input type="number" id="pmPaveLower" class="fill-h-inp" placeholder="200" min="0" oninput="updatePmPaveTotal()"><span class="fill-h-unit">mm</span></div>
+        </div>
+        <div style="flex:1">
+          <div style="font-size:10px;color:#555;margin-bottom:4px">上層路盤</div>
+          <div class="fill-h-row"><input type="number" id="pmPaveUpper" class="fill-h-inp" placeholder="100" min="0" oninput="updatePmPaveTotal()"><span class="fill-h-unit">mm</span></div>
+        </div>
+        <div style="flex:1">
+          <div style="font-size:10px;color:#555;margin-bottom:4px">表層</div>
+          <div class="fill-h-row"><input type="number" id="pmPaveSurface" class="fill-h-inp" placeholder="50" min="0" oninput="updatePmPaveTotal()"><span class="fill-h-unit">mm</span></div>
+        </div>
+      </div>
+      <div id="pmPaveTotal" style="font-size:11px;color:#555;margin-top:5px;text-align:right;"></div>
+    </div>
     <button class="modal-btn modal-save" onclick="saveProjModal()">保存</button>
     <button class="modal-btn modal-cancel" onclick="closeProjModal()">キャンセル</button>
   </div>
@@ -544,8 +563,12 @@ body{display:flex;flex-direction:column;}
         <span class="fill-h-unit">mm</span>
       </div>
     </div>
-    <div class="field">
-      <label>舗装構成</label>
+    <div class="field" id="fillPaveInfoRow" style="display:none">
+      <label>舗装構成（案件設定より）</label>
+      <div id="fillPaveInfo" style="font-size:13px;color:#66BB6A;background:#111;padding:9px 12px;border-radius:8px;border:1px solid #1a3a1a;"></div>
+    </div>
+    <div class="field" id="fillPavePresetRow">
+      <label>舗装構成プリセット</label>
       <select id="fillPaveSel" class="fill-sel" onchange="updateFillPreview()">
         <option value="">なし（埋戻しのみ）</option>
       </select>
@@ -740,24 +763,36 @@ function addProject(){
 function openProjModal(){ show('projModal'); }
 function closeProjModal(){ hide('projModal'); }
 
+function updatePmPaveTotal(){
+  const l=parseInt(document.getElementById('pmPaveLower').value)||0;
+  const u=parseInt(document.getElementById('pmPaveUpper').value)||0;
+  const s=parseInt(document.getElementById('pmPaveSurface').value)||0;
+  const el=document.getElementById('pmPaveTotal');
+  el.textContent=(l||u||s)?`合計 ${l+u+s}mm`:'';
+}
+
 function saveProjModal(){
   const name=document.getElementById('pmName').value.trim();
   const contractor=document.getElementById('pmContractor').value.trim()||DEFAULT_CONTRACTOR;
   const dateFrom=document.getElementById('pmDateFrom').value;
   const dateTo=document.getElementById('pmDateTo').value;
   const location=document.getElementById('pmLocation').value.trim();
+  const paveType=document.getElementById('pmPaveType').value.trim();
+  const paveLower=parseInt(document.getElementById('pmPaveLower').value)||0;
+  const paveUpper=parseInt(document.getElementById('pmPaveUpper').value)||0;
+  const paveSurface=parseInt(document.getElementById('pmPaveSurface').value)||0;
   if(!name){toast('案件名を入力してください');return;}
   const projs=getProjects();
   if(editingProjId){
     const p=projs.find(p=>p.id===editingProjId);
-    if(p){p.name=name;p.contractor=contractor;p.dateFrom=dateFrom;p.dateTo=dateTo;p.location=location;}
+    if(p){p.name=name;p.contractor=contractor;p.dateFrom=dateFrom;p.dateTo=dateTo;p.location=location;p.paveType=paveType;p.paveLower=paveLower;p.paveUpper=paveUpper;p.paveSurface=paveSurface;}
     saveProjects(projs);
     if(curProjId===editingProjId) renderProject();
     renderProjects(); toast('更新しました');
     closeProjModal();
   } else {
     const newId=uid();
-    projs.push({id:newId,name,contractor,dateFrom,dateTo,location,groups:[]});
+    projs.push({id:newId,name,contractor,dateFrom,dateTo,location,paveType,paveLower,paveUpper,paveSurface,groups:[]});
     saveProjects(projs); renderProjects();
     curProjId=newId;
     closeProjModal();
@@ -906,6 +941,11 @@ function editProjectName(){
   document.getElementById('pmDateFrom').value=proj.dateFrom||(proj.date||'');
   document.getElementById('pmDateTo').value=proj.dateTo||'';
   document.getElementById('pmLocation').value=proj.location||'';
+  document.getElementById('pmPaveType').value=proj.paveType||'';
+  document.getElementById('pmPaveLower').value=proj.paveLower||'';
+  document.getElementById('pmPaveUpper').value=proj.paveUpper||'';
+  document.getElementById('pmPaveSurface').value=proj.paveSurface||'';
+  updatePmPaveTotal();
   show('projModal');
 }
 
@@ -1884,37 +1924,61 @@ function savePavementEdit(){
 
 // ── FILL GENERATION ───────────────────────────────────────────────
 let _fillProcId=null;
+function _getProjPave(){
+  const proj=getProjects().find(p=>p.id===curProjId); if(!proj) return null;
+  const l=proj.paveLower||0, u=proj.paveUpper||0, s=proj.paveSurface||0;
+  return (l||u||s)?{type:proj.paveType||'',lower:l,upper:u,surface:s}:null;
+}
 function openFillModal(procId){
   _fillProcId=procId;
   document.getElementById('fillDepth').value='';
   document.getElementById('fillPitch').value='200';
-  const sel=document.getElementById('fillPaveSel');
-  sel.innerHTML='<option value="">なし（埋戻しのみ）</option>';
-  getPavementPresets().forEach(p=>{
-    const o=document.createElement('option'); o.value=p.id; o.textContent=p.name; sel.appendChild(o);
-  });
+  const projPave=_getProjPave();
+  if(projPave){
+    const total=projPave.lower+projPave.upper+projPave.surface;
+    const typeName=projPave.type?`${projPave.type}・`:'';
+    document.getElementById('fillPaveInfo').textContent=`${typeName}下層路盤${projPave.lower}mm＋上層路盤${projPave.upper}mm＋表層${projPave.surface}mm＝計${total}mm`;
+    document.getElementById('fillPaveInfoRow').style.display='';
+    document.getElementById('fillPavePresetRow').style.display='none';
+  } else {
+    const sel=document.getElementById('fillPaveSel');
+    sel.innerHTML='<option value="">なし（埋戻しのみ）</option>';
+    getPavementPresets().forEach(p=>{const o=document.createElement('option');o.value=p.id;o.textContent=p.name;sel.appendChild(o);});
+    document.getElementById('fillPaveInfoRow').style.display='none';
+    document.getElementById('fillPavePresetRow').style.display='';
+  }
   document.getElementById('fillPreview').innerHTML='<span style="color:#444">深さを入力してください</span>';
   show('fillModal');
 }
 function closeFillModal(){hide('fillModal');}
-function _buildFillItems(depth,pitch,paveId){
-  const items=[];
-  const pave=getPavementPresets().find(p=>p.id===paveId);
-  const paveH=pave?pave.layers.reduce((s,l)=>s+l.thickness,0):0;
-  for(let h=depth;h>paveH;h-=pitch) items.push({type:'fill',name:`埋戻し（H=${h}mm）`});
-  if(pave){
-    let cum=paveH;
-    pave.layers.forEach(l=>{items.push({type:'pave',name:`${l.name}（H=${cum}mm）`});cum-=l.thickness;});
+function _buildFillItems(depth,pitch,paveId,projPave){
+  const items=[]; let paveH=0; const layers=[];
+  if(projPave){
+    const l=projPave.lower||0, u=projPave.upper||0, s=projPave.surface||0;
+    paveH=l+u+s;
+    if(l) layers.push({name:'下層路盤',bottom:paveH});
+    if(u) layers.push({name:'上層路盤',bottom:u+s});
+    if(s) layers.push({name:'表層',bottom:s});
+  } else if(paveId){
+    const pave=getPavementPresets().find(p=>p.id===paveId);
+    if(pave){
+      paveH=pave.layers.reduce((s,l)=>s+l.thickness,0);
+      let cum=paveH;
+      pave.layers.forEach(l=>{layers.push({name:l.name,bottom:cum});cum-=l.thickness;});
+    }
   }
+  for(let h=depth-pitch;h>paveH;h-=pitch) items.push({type:'fill',name:`埋戻し（H=${h}mm）`});
+  layers.forEach(l=>items.push({type:'pave',name:`${l.name}（H=${l.bottom}mm）`}));
   return items;
 }
 function updateFillPreview(){
   const depth=parseInt(document.getElementById('fillDepth').value)||0;
   const pitch=parseInt(document.getElementById('fillPitch').value)||200;
-  const paveId=document.getElementById('fillPaveSel').value;
+  const projPave=_getProjPave();
+  const paveId=projPave?null:document.getElementById('fillPaveSel').value;
   const el=document.getElementById('fillPreview');
   if(!depth){el.innerHTML='<span style="color:#444">深さを入力してください</span>';return;}
-  const items=_buildFillItems(depth,pitch,paveId);
+  const items=_buildFillItems(depth,pitch,paveId,projPave);
   el.innerHTML=items.length
     ?items.map(it=>`<div class="fill-pi${it.type==='pave'?' pave':''}">${it.type==='pave'?'🏗':'▸'} ${it.name}</div>`).join('')
     :'<span style="color:#444">生成される工種がありません</span>';
@@ -1922,9 +1986,10 @@ function updateFillPreview(){
 function applyFillGeneration(){
   const depth=parseInt(document.getElementById('fillDepth').value)||0;
   const pitch=parseInt(document.getElementById('fillPitch').value)||200;
-  const paveId=document.getElementById('fillPaveSel').value;
+  const projPave=_getProjPave();
+  const paveId=projPave?null:document.getElementById('fillPaveSel').value;
   if(!depth){toast('深さを入力してください');return;}
-  const items=_buildFillItems(depth,pitch,paveId);
+  const items=_buildFillItems(depth,pitch,paveId,projPave);
   if(!items.length){toast('生成する工種がありません');return;}
   const projs=getProjects();
   const proj=projs.find(p=>p.id===curProjId);
