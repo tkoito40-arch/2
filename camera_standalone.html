@@ -89,6 +89,26 @@ body{display:flex;flex-direction:column;}
   font-family:inherit;white-space:nowrap;}
 .proc-add-btn:active{color:#fff;border-color:#666;}
 
+/* ── PAVEMENT SCREEN ── */
+.pave-card{background:#151515;border:1px solid #222;border-radius:10px;
+  display:flex;align-items:center;padding:13px 14px;gap:8px;}
+.pave-card-info{flex:1;min-width:0;}
+.pave-card-name{font-size:14px;font-weight:700;}
+.pave-card-sub{font-size:11px;color:#555;margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.layer-row{display:flex;align-items:center;gap:6px;padding:6px 0;border-bottom:1px solid #1a1a1a;}
+.layer-name-inp{flex:1;min-width:0;padding:8px 10px;background:#111;border:1px solid #252525;border-radius:8px;color:#fff;font-size:13px;font-family:inherit;}
+.layer-thk-inp{width:72px;padding:8px 8px;background:#111;border:1px solid #252525;border-radius:8px;color:#fff;font-size:13px;font-family:inherit;text-align:right;}
+.layer-unit{color:#555;font-size:12px;flex-shrink:0;}
+.layer-del{background:transparent;border:none;color:#555;font-size:18px;cursor:pointer;padding:0 4px;flex-shrink:0;}
+
+/* ── FILL MODAL ── */
+.fill-h-row{display:flex;align-items:center;gap:8px;}
+.fill-h-inp{flex:1;padding:11px 13px;background:#151515;border:1px solid #252525;border-radius:10px;color:#fff;font-size:15px;font-family:inherit;text-align:right;}
+.fill-h-unit{color:#666;font-size:13px;flex-shrink:0;}
+.fill-preview{background:#111;border:1px solid #222;border-radius:8px;padding:10px 12px;max-height:180px;overflow-y:auto;font-size:12px;color:#888;display:flex;flex-direction:column;gap:3px;}
+.fill-pi{padding:2px 0;}.fill-pi.pave{color:#42A5F5;}
+.fill-sel{width:100%;padding:11px 13px;background:#151515;border:1px solid #252525;border-radius:10px;color:#fff;font-size:14px;font-family:inherit;-webkit-appearance:none;}
+
 /* ── LIGHTBOX ── */
 .lightbox{position:fixed;inset:0;z-index:500;display:flex;flex-direction:column;
   align-items:center;justify-content:center;}
@@ -482,7 +502,74 @@ body{display:flex;flex-direction:column;}
     <h2>⚙ 設定</h2>
     <button class="modal-btn" style="background:#2E3A4A;color:#42A5F5;border:1px solid #42A5F5"
       onclick="closeSettings();openTemplates()">📋 工種テンプレートを編集</button>
+    <button class="modal-btn" style="background:#1B3A2A;color:#66BB6A;border:1px solid #66BB6A"
+      onclick="closeSettings();openPavement()">🏗 舗装構成プリセットを編集</button>
     <button class="modal-btn modal-cancel" onclick="closeSettings()">キャンセル</button>
+  </div>
+</div>
+
+<!-- Pavement Edit Modal -->
+<div class="modal-bg hidden" id="pavementEditModal">
+  <div class="modal">
+    <h2 id="paveModalTitle">舗装構成を追加</h2>
+    <div class="field">
+      <label>地域名</label>
+      <input type="text" id="paveNameInp" placeholder="例：海老名市 3号復旧" style="width:100%;padding:11px 13px;background:#151515;border:1px solid #252525;border-radius:10px;color:#fff;font-size:15px;font-family:inherit;">
+    </div>
+    <div class="field">
+      <label>層構成（下層から順に入力）</label>
+      <div id="paveLayerList"></div>
+      <button class="btn-sec" style="margin-top:8px" onclick="addPaveLayer()">＋ 層を追加</button>
+    </div>
+    <button class="modal-btn modal-save" onclick="savePavementEdit()">💾 保存</button>
+    <button class="modal-btn modal-cancel" onclick="closePavementEdit()">キャンセル</button>
+  </div>
+</div>
+
+<!-- Fill Generation Modal -->
+<div class="modal-bg hidden" id="fillModal">
+  <div class="modal">
+    <h2>⚡ 埋戻し自動生成</h2>
+    <div class="field">
+      <label>床付け深さ H（埋戻し材から地表まで）</label>
+      <div class="fill-h-row">
+        <input type="number" id="fillDepth" class="fill-h-inp" placeholder="1400" min="10" max="9999" oninput="updateFillPreview()">
+        <span class="fill-h-unit">mm</span>
+      </div>
+    </div>
+    <div class="field">
+      <label>撮影ピッチ</label>
+      <div class="fill-h-row">
+        <input type="number" id="fillPitch" class="fill-h-inp" value="200" min="50" max="2000" oninput="updateFillPreview()">
+        <span class="fill-h-unit">mm</span>
+      </div>
+    </div>
+    <div class="field">
+      <label>舗装構成</label>
+      <select id="fillPaveSel" class="fill-sel" onchange="updateFillPreview()">
+        <option value="">なし（埋戻しのみ）</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>生成プレビュー</label>
+      <div class="fill-preview" id="fillPreview"><span style="color:#444">深さを入力してください</span></div>
+    </div>
+    <button class="modal-btn modal-save" onclick="applyFillGeneration()">⚡ 生成する</button>
+    <button class="modal-btn modal-cancel" onclick="closeFillModal()">キャンセル</button>
+  </div>
+</div>
+
+<!-- ████ PAVEMENT: 舗装構成管理 ████ -->
+<div class="screen hidden" id="sPavement">
+  <div class="hdr">
+    <button class="hdr-btn" onclick="closePavement()">← 戻る</button>
+    <h1>舗装構成プリセット</h1>
+    <button class="hdr-btn" onclick="openPavementEdit(null)">＋</button>
+  </div>
+  <div class="body">
+    <div class="hint" style="color:#666;font-size:13px">市区ごとの舗装層構成を登録します。下層から順に入力してください。</div>
+    <div id="pavementList" style="display:flex;flex-direction:column;gap:8px;margin-top:8px;"></div>
+    <div class="empty-msg hidden" id="pavementEmpty">舗装構成がありません<br>右上の ＋ から追加してください</div>
   </div>
 </div>
 
@@ -787,6 +874,14 @@ function renderGroupDetail(){
       top.appendChild(cnt);
     }
     top.appendChild(btn);
+    if(proc.name==='床付け'){
+      const fillBtn=document.createElement('button');
+      fillBtn.className='shoot-btn';
+      fillBtn.style.cssText='background:#1B5E20;font-size:12px;padding:5px 10px;';
+      fillBtn.textContent='⚡埋戻し生成';
+      fillBtn.onclick=e=>{e.stopPropagation();openFillModal(proc.id);};
+      top.appendChild(fillBtn);
+    }
     row.appendChild(top);
     if(hasPh){
       const thumbRow=document.createElement('div'); thumbRow.className='proc-thumbs';
@@ -816,7 +911,7 @@ function editProjectName(){
 
 function showHome(){
   stopCam();
-  hide('sProject'); hide('sWorkType'); hide('sGroupDetail'); hide('sGroupEdit'); hide('sTemplates'); hide('sCam'); hide('sGal'); show('sHome');
+  hide('sProject'); hide('sWorkType'); hide('sGroupDetail'); hide('sGroupEdit'); hide('sTemplates'); hide('sPavement'); hide('sCam'); hide('sGal'); show('sHome');
   renderProjects();
 }
 
@@ -1714,6 +1809,131 @@ function openTemplateEdit(idx){
   document.getElementById('geTitle').textContent='テンプレートを編集';
   renderProcEditList();
   hide('sTemplates'); show('sGroupEdit');
+}
+
+// ── PAVEMENT PRESETS ─────────────────────────────────────────────
+const getPavementPresets=()=>JSON.parse(localStorage.getItem('bbcam_pave')||'[]');
+const savePavementPresets=p=>localStorage.setItem('bbcam_pave',JSON.stringify(p));
+let paveEditId=null, _paveLayers=[];
+
+function openPavement(){
+  hide('sHome'); show('sPavement'); renderPavementList();
+}
+function closePavement(){
+  hide('sPavement'); show('sHome');
+}
+function renderPavementList(){
+  const list=document.getElementById('pavementList');
+  const presets=getPavementPresets();
+  list.innerHTML='';
+  if(!presets.length){show('pavementEmpty');return;}
+  hide('pavementEmpty');
+  presets.forEach(p=>{
+    const totalH=p.layers.reduce((s,l)=>s+l.thickness,0);
+    const sub=p.layers.map(l=>`${l.name} ${l.thickness}mm`).join(' / ');
+    const card=document.createElement('div'); card.className='pave-card';
+    const info=document.createElement('div'); info.className='pave-card-info';
+    info.innerHTML=`<div class="pave-card-name">${p.name}</div><div class="pave-card-sub">計${totalH}mm　${sub}</div>`;
+    const editBtn=document.createElement('button'); editBtn.className='proj-del'; editBtn.textContent='✏';
+    editBtn.onclick=()=>openPavementEdit(p.id);
+    const delBtn=document.createElement('button'); delBtn.className='proj-del'; delBtn.textContent='🗑';
+    delBtn.onclick=()=>{if(!confirm('削除しますか？'))return;savePavementPresets(getPavementPresets().filter(x=>x.id!==p.id));renderPavementList();toast('削除しました');};
+    card.appendChild(info); card.appendChild(editBtn); card.appendChild(delBtn);
+    list.appendChild(card);
+  });
+}
+function openPavementEdit(id){
+  paveEditId=id;
+  const p=id?getPavementPresets().find(x=>x.id===id):null;
+  document.getElementById('paveModalTitle').textContent=p?'舗装構成を編集':'舗装構成を追加';
+  document.getElementById('paveNameInp').value=p?p.name:'';
+  _paveLayers=p?p.layers.map(l=>({...l})):[];
+  _redrawPaveLayers();
+  show('pavementEditModal');
+}
+function closePavementEdit(){hide('pavementEditModal');}
+function _redrawPaveLayers(){
+  const list=document.getElementById('paveLayerList'); list.innerHTML='';
+  _paveLayers.forEach((l,i)=>{
+    const row=document.createElement('div'); row.className='layer-row';
+    const ni=document.createElement('input'); ni.type='text'; ni.className='layer-name-inp';
+    ni.placeholder='層名（例：RC-40）'; ni.value=l.name||'';
+    ni.oninput=e=>_paveLayers[i].name=e.target.value;
+    const ti=document.createElement('input'); ti.type='number'; ti.className='layer-thk-inp';
+    ti.placeholder='厚さ'; ti.min=1; ti.value=l.thickness||'';
+    ti.oninput=e=>_paveLayers[i].thickness=parseInt(e.target.value)||0;
+    const un=document.createElement('span'); un.className='layer-unit'; un.textContent='mm';
+    const dl=document.createElement('button'); dl.className='layer-del'; dl.textContent='✕';
+    dl.onclick=()=>{_paveLayers.splice(i,1);_redrawPaveLayers();};
+    row.appendChild(ni); row.appendChild(ti); row.appendChild(un); row.appendChild(dl);
+    list.appendChild(row);
+  });
+}
+function addPaveLayer(){_paveLayers.push({name:'',thickness:0});_redrawPaveLayers();}
+function savePavementEdit(){
+  const name=document.getElementById('paveNameInp').value.trim();
+  if(!name){toast('地域名を入力してください');return;}
+  if(!_paveLayers.length){toast('層を1つ以上追加してください');return;}
+  if(_paveLayers.some(l=>!l.name||!l.thickness)){toast('全ての層に名前と厚さを入力してください');return;}
+  const presets=getPavementPresets();
+  if(paveEditId){const p=presets.find(x=>x.id===paveEditId);if(p){p.name=name;p.layers=[..._paveLayers];}}
+  else presets.push({id:String(uid()),name,layers:[..._paveLayers]});
+  savePavementPresets(presets);
+  closePavementEdit(); renderPavementList(); toast('💾 保存しました');
+}
+
+// ── FILL GENERATION ───────────────────────────────────────────────
+let _fillProcId=null;
+function openFillModal(procId){
+  _fillProcId=procId;
+  document.getElementById('fillDepth').value='';
+  document.getElementById('fillPitch').value='200';
+  const sel=document.getElementById('fillPaveSel');
+  sel.innerHTML='<option value="">なし（埋戻しのみ）</option>';
+  getPavementPresets().forEach(p=>{
+    const o=document.createElement('option'); o.value=p.id; o.textContent=p.name; sel.appendChild(o);
+  });
+  document.getElementById('fillPreview').innerHTML='<span style="color:#444">深さを入力してください</span>';
+  show('fillModal');
+}
+function closeFillModal(){hide('fillModal');}
+function _buildFillItems(depth,pitch,paveId){
+  const items=[];
+  const pave=getPavementPresets().find(p=>p.id===paveId);
+  const paveH=pave?pave.layers.reduce((s,l)=>s+l.thickness,0):0;
+  for(let h=depth;h>paveH;h-=pitch) items.push({type:'fill',name:`埋戻し（H=${h}mm）`});
+  if(pave){
+    let cum=paveH;
+    pave.layers.forEach(l=>{items.push({type:'pave',name:`${l.name}（H=${cum}mm）`});cum-=l.thickness;});
+  }
+  return items;
+}
+function updateFillPreview(){
+  const depth=parseInt(document.getElementById('fillDepth').value)||0;
+  const pitch=parseInt(document.getElementById('fillPitch').value)||200;
+  const paveId=document.getElementById('fillPaveSel').value;
+  const el=document.getElementById('fillPreview');
+  if(!depth){el.innerHTML='<span style="color:#444">深さを入力してください</span>';return;}
+  const items=_buildFillItems(depth,pitch,paveId);
+  el.innerHTML=items.length
+    ?items.map(it=>`<div class="fill-pi${it.type==='pave'?' pave':''}">${it.type==='pave'?'🏗':'▸'} ${it.name}</div>`).join('')
+    :'<span style="color:#444">生成される工種がありません</span>';
+}
+function applyFillGeneration(){
+  const depth=parseInt(document.getElementById('fillDepth').value)||0;
+  const pitch=parseInt(document.getElementById('fillPitch').value)||200;
+  const paveId=document.getElementById('fillPaveSel').value;
+  if(!depth){toast('深さを入力してください');return;}
+  const items=_buildFillItems(depth,pitch,paveId);
+  if(!items.length){toast('生成する工種がありません');return;}
+  const projs=getProjects();
+  const proj=projs.find(p=>p.id===curProjId);
+  const g=proj&&proj.groups.find(g=>g.id===curGroupId);
+  if(!proj||!g){closeFillModal();return;}
+  const idx=g.procs.findIndex(p=>p.id===_fillProcId);
+  g.procs.splice(idx+1,0,...items.map(it=>({id:String(uid()),name:it.name})));
+  saveProjects(projs);
+  closeFillModal(); renderGroupDetail(); toast(`⚡ ${items.length}工種を生成しました`);
 }
 
 // ── SETTINGS ─────────────────────────────────────────────────────
