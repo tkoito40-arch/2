@@ -44,6 +44,9 @@ body{display:flex;flex-direction:column;}
   border-radius:10px;color:#fff;font-size:15px;font-family:inherit;-webkit-appearance:none;}
 .field input:focus{outline:none;border-color:#1565C0;}
 .hint{font-size:11px;color:#444;margin-top:4px;}
+.date-range-row{display:flex;align-items:center;gap:6px;}
+.date-range-row input{flex:1;min-width:0;}
+.date-range-sep{flex-shrink:0;color:#666;font-size:13px;}
 
 /* ── HOME: 案件カード ── */
 .proj-card{background:#151515;border:1px solid #222;border-radius:10px;
@@ -453,7 +456,11 @@ body{display:flex;flex-direction:column;}
     </div>
     <div class="field">
       <label>施工年月日</label>
-      <input type="date" id="pmDate">
+      <div class="date-range-row">
+        <input type="date" id="pmDateFrom">
+        <span class="date-range-sep">〜</span>
+        <input type="date" id="pmDateTo">
+      </div>
     </div>
     <div class="field">
       <label>場所</label>
@@ -585,7 +592,7 @@ function renderProjects(){
   hide('projEmpty');
   projs.forEach(p=>{
     const totalProcs=p.groups.reduce((s,g)=>s+g.procs.length,0);
-    const dateStr=p.date?p.date.replace(/(\d{4})-(\d{2})-(\d{2})/,'$1年$2月$3日'):'';
+    const dateStr=_projDateStr(p);
     const meta=[dateStr,p.location].filter(Boolean).join('　／　');
     const card=document.createElement('div'); card.className='proj-card';
     const info=document.createElement('div'); info.className='proj-info';
@@ -604,12 +611,21 @@ function renderProjects(){
 
 const DEFAULT_CONTRACTOR='㈲小糸設備';
 
+function _projDateStr(proj){
+  const fmt=d=>d?d.replace(/(\d{4})-(\d{2})-(\d{2})/,'$1年$2月$3日'):'';
+  const from=proj.dateFrom||(proj.date||'');
+  const to=proj.dateTo||'';
+  if(!from) return '';
+  return to?`${fmt(from)} 〜 ${fmt(to)}`:fmt(from);
+}
+
 function addProject(){
   editingProjId=null;
   document.getElementById('projModalTitle').textContent='案件を追加';
   document.getElementById('pmName').value='';
   document.getElementById('pmContractor').value=DEFAULT_CONTRACTOR;
-  document.getElementById('pmDate').value='';
+  document.getElementById('pmDateFrom').value='';
+  document.getElementById('pmDateTo').value='';
   document.getElementById('pmLocation').value='';
   show('projModal');
 }
@@ -620,20 +636,21 @@ function closeProjModal(){ hide('projModal'); }
 function saveProjModal(){
   const name=document.getElementById('pmName').value.trim();
   const contractor=document.getElementById('pmContractor').value.trim()||DEFAULT_CONTRACTOR;
-  const date=document.getElementById('pmDate').value;
+  const dateFrom=document.getElementById('pmDateFrom').value;
+  const dateTo=document.getElementById('pmDateTo').value;
   const location=document.getElementById('pmLocation').value.trim();
   if(!name){toast('案件名を入力してください');return;}
   const projs=getProjects();
   if(editingProjId){
     const p=projs.find(p=>p.id===editingProjId);
-    if(p){p.name=name;p.contractor=contractor;p.date=date;p.location=location;}
+    if(p){p.name=name;p.contractor=contractor;p.dateFrom=dateFrom;p.dateTo=dateTo;p.location=location;}
     saveProjects(projs);
     if(curProjId===editingProjId) renderProject();
     renderProjects(); toast('更新しました');
     closeProjModal();
   } else {
     const newId=uid();
-    projs.push({id:newId,name,contractor,date,location,groups:[]});
+    projs.push({id:newId,name,contractor,dateFrom,dateTo,location,groups:[]});
     saveProjects(projs); renderProjects();
     curProjId=newId;
     closeProjModal();
@@ -656,7 +673,7 @@ function openProject(id){
 function renderProject(){
   const proj=getProjects().find(p=>p.id===curProjId); if(!proj) return;
   document.getElementById('projTitle').textContent=proj.name;
-  const dateStr=proj.date?proj.date.replace(/(\d{4})-(\d{2})-(\d{2})/,'$1年$2月$3日'):'';
+  const dateStr=_projDateStr(proj);
   const meta=[dateStr,proj.location].filter(Boolean).join('　／　');
   document.getElementById('projMeta').textContent=meta;
   const list=document.getElementById('groupList'); list.innerHTML='';
@@ -762,7 +779,8 @@ function editProjectName(){
   document.getElementById('projModalTitle').textContent='案件を編集';
   document.getElementById('pmName').value=proj.name;
   document.getElementById('pmContractor').value=proj.contractor||DEFAULT_CONTRACTOR;
-  document.getElementById('pmDate').value=proj.date||'';
+  document.getElementById('pmDateFrom').value=proj.dateFrom||(proj.date||'');
+  document.getElementById('pmDateTo').value=proj.dateTo||'';
   document.getElementById('pmLocation').value=proj.location||'';
   show('projModal');
 }
@@ -849,7 +867,7 @@ async function exportGroupPDF(){
 
     const projName=proj.name;
     const grpName=g.name;
-    const dateStr=proj.date?proj.date.replace(/(\d{4})-(\d{2})-(\d{2})/,'$1年$2月$3日'):'';
+    const dateStr=_projDateStr(proj);
     const meta=[dateStr,proj.location,proj.contractor].filter(Boolean).join('　／　');
 
     const pages=[];
@@ -955,7 +973,7 @@ async function shareGroupPhotos(){
         const s=document.createElement('script');
         s.src='https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
         s.onload=res;
-        s.onerror=()=>rej(new Error('ネットワークに接続してください（jsPDF読み込み失敗）'));
+        s.onerror=()=>rej(new Error('ネットワークに接続してください'));
         document.head.appendChild(s);
       });
     }
@@ -963,110 +981,132 @@ async function shareGroupPhotos(){
     const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
 
     // ── レイアウト定数 ─────────────────────────────────────────────
-    const ppm=4;       // canvas解像度: 4px/mm
-    const pgW=210,pgH=297;
-    const mgL=6,mgR=6,mgT=6;
-    const usableW=pgW-mgL-mgR; // 198mm
-    const phW=126;     // 写真エリア幅 (130mm列 - 4mm右パディング)
-    const colGap=4;    // 写真↔工種欄の間隔
-    const lblX=mgL+phW+colGap; // 136mm
-    const lblW=pgW-lblX-mgR;   // 68mm
-    const rowH=82;     // 1行の高さ
-    const phH=78;      // 写真高さ
-    const HDR1=14, HDR2=8; // ページ1ヘッダー高 / 2ページ目以降
+    const SC=3; // px/mm（canvas解像度）
+    const P=v=>Math.round(v*SC); // mm→px変換
+    const F='"Hiragino Sans","Meiryo","Yu Gothic",sans-serif';
+    const ML=6,MR=6,MT=6;
+    const UW=210-ML-MR;   // 使用幅 198mm
+    const PW=126,PH=78;   // 写真エリア
+    const GAP=4;
+    const LX=ML+PW+GAP;   // 工種欄 x=136mm
+    const LW=210-LX-MR;   // 工種欄幅 68mm
+    const RH=82;           // 行高
+    const H1=14,H2=8;     // ヘッダー高
+    const dateStr=_projDateStr(proj);
+    const meta=[dateStr,proj.location,proj.contractor].filter(Boolean).join('　／　');
 
-    const dateStr=proj.date?proj.date.replace(/(\d{4})-(\d{2})-(\d{2})/,'$1年$2月$3日'):'';
-    const metaStr=[dateStr,proj.location,proj.contractor].filter(Boolean).join('　／　');
-    const font='"Hiragino Sans","Meiryo","Yu Gothic",sans-serif';
+    // ── ページ単位でCanvasを1枚生成し jsPDF へ1回で渡す ─────────────
+    const pages=[];
+    for(let i=0;i<allPhotos.length;i+=3) pages.push(allPhotos.slice(i,i+3));
 
-    // ── canvasヘルパー ─────────────────────────────────────────────
-    function mkCanvas(wMM,hMM){
-      const c=document.createElement('canvas');
-      c.width=Math.round(wMM*ppm);c.height=Math.round(hMM*ppm);
-      const ctx=c.getContext('2d');
-      ctx.fillStyle='#fff';ctx.fillRect(0,0,c.width,c.height);
-      return {c,ctx};
-    }
-    function makeHdrImg(isFirst){
-      const hMM=isFirst?HDR1:HDR2;
-      const {c,ctx}=mkCanvas(usableW,hMM);
-      ctx.fillStyle='#000';
+    for(let pi=0;pi<pages.length;pi++){
+      if(pi>0) doc.addPage();
+      const pg=pages[pi];
+      const isFirst=pi===0;
+      const hh=isFirst?H1:H2;
+
+      // 画像を事前ロード
+      const srcs=await Promise.all(pg.map(({ph})=>_resizeForPDF(ph.dataUrl)));
+      const imgs=await Promise.all(srcs.map(s=>new Promise(ok=>{
+        const x=new Image();x.onload=()=>ok(x);x.onerror=()=>ok(null);x.src=s;
+      })));
+
+      // A4全体を1枚のCanvasに描く
+      const cv=document.createElement('canvas');
+      cv.width=P(210); cv.height=P(297);
+      const cx=cv.getContext('2d');
+      cx.fillStyle='#fff'; cx.fillRect(0,0,cv.width,cv.height);
+
+      // ヘッダー
+      cx.fillStyle='#000';
       if(isFirst){
-        ctx.font=`bold 22px ${font}`;
-        ctx.fillText(`${proj.name}　${g.name}`,0,22,c.width);
-        if(metaStr){ctx.font=`14px ${font}`;ctx.fillStyle='#555';ctx.fillText(metaStr,0,38,c.width);}
+        cx.font=`bold ${P(4.2)}px ${F}`;
+        cx.fillText(`${proj.name}　${g.name}`,P(ML),P(MT+4.2),P(UW));
+        if(meta){
+          cx.font=`${P(2.5)}px ${F}`;
+          cx.fillStyle='#555';
+          cx.fillText(meta,P(ML),P(MT+9.5),P(UW));
+          cx.fillStyle='#000';
+        }
       } else {
-        ctx.font=`bold 18px ${font}`;
-        ctx.fillText(`${proj.name}　${g.name}`,0,18,c.width);
+        cx.font=`bold ${P(3.5)}px ${F}`;
+        cx.fillText(`${proj.name}　${g.name}`,P(ML),P(MT+3.5),P(UW));
       }
-      ctx.strokeStyle='#000';ctx.lineWidth=2;
-      ctx.beginPath();ctx.moveTo(0,c.height-2);ctx.lineTo(c.width,c.height-2);ctx.stroke();
-      return c.toDataURL('image/jpeg',0.92);
-    }
-    function makeLblImg(procName){
-      const {c,ctx}=mkCanvas(lblW,phH);
-      const fsPx=18; // ≈12pt at ppm=4
-      ctx.fillStyle='#000';
-      ctx.font=`bold ${fsPx}px ${font}`;
-      ctx.fillText(procName,4,fsPx+2,c.width-8);
-      const lineY=fsPx+10;
-      ctx.strokeStyle='#000';ctx.lineWidth=2;
-      ctx.beginPath();ctx.moveTo(0,lineY);ctx.lineTo(c.width,lineY);ctx.stroke();
-      ctx.setLineDash([2,4]);ctx.strokeStyle='#bbb';ctx.lineWidth=1;
-      const numLines=8,startY=lineY+8;
-      const sp=Math.round((c.height-startY-4)/numLines);
-      for(let i=0;i<numLines;i++){
-        const ly=startY+i*sp+Math.round(sp/2);
-        ctx.beginPath();ctx.moveTo(4,ly);ctx.lineTo(c.width-4,ly);ctx.stroke();
+      cx.strokeStyle='#000'; cx.lineWidth=P(0.5); cx.setLineDash([]);
+      cx.beginPath(); cx.moveTo(P(ML),P(MT+hh)-1); cx.lineTo(P(ML+UW),P(MT+hh)-1); cx.stroke();
+
+      // 各行（写真 + 工種欄）
+      let ry=MT+hh;
+      for(let ri=0;ri<pg.length;ri++){
+        const {proc}=pg[ri];
+        const im=imgs[ri];
+
+        // 写真（object-fit:contain）
+        if(im){
+          const iw=im.naturalWidth||im.width, ih=im.naturalHeight||im.height;
+          const iAR=iw/ih, bAR=PW/PH;
+          let dw,dh,ox=0,oy=0;
+          if(iAR>=bAR){dw=PW;dh=PW/iAR;oy=(PH-dh)/2;}
+          else{dh=PH;dw=PH*iAR;ox=(PW-dw)/2;}
+          cx.drawImage(im,P(ML+ox),P(ry+oy),P(dw),P(dh));
+        }
+        cx.strokeStyle='#ccc'; cx.lineWidth=P(0.3); cx.setLineDash([]);
+        cx.strokeRect(P(ML),P(ry),P(PW),P(PH));
+
+        // 工種欄
+        const lxp=P(LX), lyp=P(ry), lwp=P(LW);
+        const fsz=P(3.2); // ≈9pt
+        cx.fillStyle='#000';
+        cx.font=`bold ${fsz}px ${F}`;
+        cx.fillText(proc, lxp, lyp+fsz, lwp);
+        // 区切り線
+        const sly=lyp+fsz+P(1.5);
+        cx.strokeStyle='#000'; cx.lineWidth=P(0.6); cx.setLineDash([]);
+        cx.beginPath(); cx.moveTo(lxp,sly); cx.lineTo(lxp+lwp,sly); cx.stroke();
+        // 点線 ×8
+        cx.strokeStyle='#bbb'; cx.lineWidth=P(0.25);
+        cx.setLineDash([P(0.5),P(1)]);
+        const ds=sly+P(1.5), de=P(ry+PH)-P(1), ns=8, sp=(de-ds)/ns;
+        for(let di=0;di<ns;di++){
+          const dly=ds+(di+0.5)*sp;
+          cx.beginPath(); cx.moveTo(lxp,dly); cx.lineTo(lxp+lwp,dly); cx.stroke();
+        }
+        cx.setLineDash([]);
+
+        // 行区切り（最終行以外）
+        if(ri<pg.length-1){
+          cx.strokeStyle='#ddd'; cx.lineWidth=1;
+          cx.beginPath(); cx.moveTo(P(ML),P(ry+RH)); cx.lineTo(P(ML+UW),P(ry+RH)); cx.stroke();
+        }
+        ry+=RH;
       }
-      return c.toDataURL('image/jpeg',0.90);
-    }
 
-    // ── ページ描画 ─────────────────────────────────────────────────
-    let pageRows=0,curY=mgT;
-
-    // 1ページ目ヘッダー
-    doc.addImage(makeHdrImg(true),'JPEG',mgL,mgT,usableW,HDR1,'','FAST');
-    curY=mgT+HDR1;
-
-    for(let i=0;i<allPhotos.length;i++){
-      if(pageRows===3){
-        doc.addPage();
-        doc.addImage(makeHdrImg(false),'JPEG',mgL,mgT,usableW,HDR2,'','FAST');
-        curY=mgT+HDR2; pageRows=0;
-      }
-      const {ph,proc}=allPhotos[i];
-      const src=await _resizeForPDF(ph.dataUrl);
-
-      // 写真: object-fit:contain 相当
-      const im=await new Promise(ok=>{const x=new Image();x.onload=()=>ok(x);x.onerror=()=>ok(null);x.src=src;});
-      let dx=mgL,dy=curY,dw=phW,dh=phH;
-      if(im){
-        const iw=im.naturalWidth||im.width,ih=im.naturalHeight||im.height;
-        const iAR=iw/ih,bAR=phW/phH;
-        if(iAR>=bAR){dw=phW;dh=Math.round(phW/iAR);dy=curY+Math.round((phH-dh)/2);}
-        else{dh=phH;dw=Math.round(phH*iAR);dx=mgL+Math.round((phW-dw)/2);}
-      }
-      doc.addImage(src,'JPEG',dx,dy,dw,dh,'','FAST');
-
-      // 工種欄（canvasで日本語テキストを描画）
-      doc.addImage(makeLblImg(proc),'JPEG',lblX,curY,lblW,phH,'','FAST');
-
-      curY+=rowH; pageRows++;
+      // Canvas全体を1画像としてjsPDFに追加
+      doc.addImage(cv.toDataURL('image/jpeg',0.85),'JPEG',0,0,210,297);
     }
 
     const blob=doc.output('blob');
     const fn=`${proj.name}_${g.name}.pdf`;
-    const file=new File([blob],fn,{type:'application/pdf'});
-    if(navigator.canShare&&navigator.canShare({files:[file]})){
-      await navigator.share({title:`${proj.name} ${g.name}`,files:[file]});
-    } else {
+
+    const _download=()=>{
       const url=URL.createObjectURL(blob);
       const a=document.createElement('a');
-      a.href=url;a.download=fn;
-      document.body.appendChild(a);a.click();
-      document.body.removeChild(a);URL.revokeObjectURL(url);
+      a.href=url; a.download=fn;
+      document.body.appendChild(a); a.click();
+      document.body.removeChild(a); URL.revokeObjectURL(url);
       toast('PDFをダウンロードしました');
+    };
+
+    if(navigator.share){
+      try{
+        const file=new File([blob],fn,{type:'application/pdf'});
+        await navigator.share({title:`${proj.name} ${g.name}`,files:[file]});
+      } catch(shareErr){
+        if(shareErr.name==='AbortError') return; // ユーザーがキャンセル
+        _download(); // PDF共有非対応端末はダウンロード
+      }
+    } else {
+      _download();
     }
   } catch(e){
     if(e.name==='AbortError') return;
