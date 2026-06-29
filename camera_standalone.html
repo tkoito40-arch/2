@@ -494,20 +494,8 @@ body{display:flex;flex-direction:column;}
     <div class="field">
       <label>舗装構成（任意）</label>
       <input type="text" id="pmPaveType" placeholder="例：3号復旧" style="width:100%;margin-bottom:8px;">
-      <div style="display:flex;gap:8px;">
-        <div style="flex:1">
-          <div style="font-size:10px;color:#555;margin-bottom:4px">下層路盤</div>
-          <div class="fill-h-row"><input type="number" id="pmPaveLower" class="fill-h-inp" placeholder="200" min="0" oninput="updatePmPaveTotal()"><span class="fill-h-unit">mm</span></div>
-        </div>
-        <div style="flex:1">
-          <div style="font-size:10px;color:#555;margin-bottom:4px">上層路盤</div>
-          <div class="fill-h-row"><input type="number" id="pmPaveUpper" class="fill-h-inp" placeholder="100" min="0" oninput="updatePmPaveTotal()"><span class="fill-h-unit">mm</span></div>
-        </div>
-        <div style="flex:1">
-          <div style="font-size:10px;color:#555;margin-bottom:4px">表層</div>
-          <div class="fill-h-row"><input type="number" id="pmPaveSurface" class="fill-h-inp" placeholder="50" min="0" oninput="updatePmPaveTotal()"><span class="fill-h-unit">mm</span></div>
-        </div>
-      </div>
+      <div id="pmPaveLayerList"></div>
+      <button class="btn-sec" style="margin-top:8px;width:100%" onclick="addProjPaveLayer()">＋ 層を追加</button>
       <div id="pmPaveTotal" style="font-size:11px;color:#555;margin-top:5px;text-align:right;"></div>
     </div>
     <button class="modal-btn modal-save" onclick="saveProjModal()">保存</button>
@@ -757,19 +745,40 @@ function addProject(){
   document.getElementById('pmDateFrom').value='';
   document.getElementById('pmDateTo').value='';
   document.getElementById('pmLocation').value='';
+  document.getElementById('pmPaveType').value='';
+  _projPaveLayers=[]; _redrawProjPaveLayers();
   show('projModal');
 }
 
 function openProjModal(){ show('projModal'); }
 function closeProjModal(){ hide('projModal'); }
 
+let _projPaveLayers=[];
 function updatePmPaveTotal(){
-  const l=parseInt(document.getElementById('pmPaveLower').value)||0;
-  const u=parseInt(document.getElementById('pmPaveUpper').value)||0;
-  const s=parseInt(document.getElementById('pmPaveSurface').value)||0;
+  const total=_projPaveLayers.reduce((s,l)=>s+(l.thickness||0),0);
   const el=document.getElementById('pmPaveTotal');
-  el.textContent=(l||u||s)?`合計 ${l+u+s}mm`:'';
+  if(el) el.textContent=total?`合計 ${total}mm`:'';
 }
+function _redrawProjPaveLayers(){
+  const list=document.getElementById('pmPaveLayerList'); if(!list) return;
+  list.innerHTML='';
+  _projPaveLayers.forEach((l,i)=>{
+    const row=document.createElement('div'); row.className='layer-row';
+    const ni=document.createElement('input'); ni.type='text'; ni.className='layer-name-inp';
+    ni.placeholder='層名（例：下層路盤）'; ni.value=l.name||'';
+    ni.oninput=e=>_projPaveLayers[i].name=e.target.value;
+    const ti=document.createElement('input'); ti.type='number'; ti.className='layer-thk-inp';
+    ti.placeholder='厚さ'; ti.min=1; ti.value=l.thickness||'';
+    ti.oninput=e=>{_projPaveLayers[i].thickness=parseInt(e.target.value)||0;updatePmPaveTotal();};
+    const un=document.createElement('span'); un.className='layer-unit'; un.textContent='mm';
+    const dl=document.createElement('button'); dl.className='layer-del'; dl.textContent='✕';
+    dl.onclick=()=>{_projPaveLayers.splice(i,1);_redrawProjPaveLayers();};
+    row.appendChild(ni); row.appendChild(ti); row.appendChild(un); row.appendChild(dl);
+    list.appendChild(row);
+  });
+  updatePmPaveTotal();
+}
+function addProjPaveLayer(){_projPaveLayers.push({name:'',thickness:0});_redrawProjPaveLayers();}
 
 function saveProjModal(){
   const name=document.getElementById('pmName').value.trim();
@@ -778,21 +787,19 @@ function saveProjModal(){
   const dateTo=document.getElementById('pmDateTo').value;
   const location=document.getElementById('pmLocation').value.trim();
   const paveType=document.getElementById('pmPaveType').value.trim();
-  const paveLower=parseInt(document.getElementById('pmPaveLower').value)||0;
-  const paveUpper=parseInt(document.getElementById('pmPaveUpper').value)||0;
-  const paveSurface=parseInt(document.getElementById('pmPaveSurface').value)||0;
+  const paveLayers=_projPaveLayers.filter(l=>l.name&&l.thickness>0);
   if(!name){toast('案件名を入力してください');return;}
   const projs=getProjects();
   if(editingProjId){
     const p=projs.find(p=>p.id===editingProjId);
-    if(p){p.name=name;p.contractor=contractor;p.dateFrom=dateFrom;p.dateTo=dateTo;p.location=location;p.paveType=paveType;p.paveLower=paveLower;p.paveUpper=paveUpper;p.paveSurface=paveSurface;}
+    if(p){p.name=name;p.contractor=contractor;p.dateFrom=dateFrom;p.dateTo=dateTo;p.location=location;p.paveType=paveType;p.paveLayers=paveLayers;}
     saveProjects(projs);
     if(curProjId===editingProjId) renderProject();
     renderProjects(); toast('更新しました');
     closeProjModal();
   } else {
     const newId=uid();
-    projs.push({id:newId,name,contractor,dateFrom,dateTo,location,paveType,paveLower,paveUpper,paveSurface,groups:[]});
+    projs.push({id:newId,name,contractor,dateFrom,dateTo,location,paveType,paveLayers,groups:[]});
     saveProjects(projs); renderProjects();
     curProjId=newId;
     closeProjModal();
@@ -942,10 +949,14 @@ function editProjectName(){
   document.getElementById('pmDateTo').value=proj.dateTo||'';
   document.getElementById('pmLocation').value=proj.location||'';
   document.getElementById('pmPaveType').value=proj.paveType||'';
-  document.getElementById('pmPaveLower').value=proj.paveLower||'';
-  document.getElementById('pmPaveUpper').value=proj.paveUpper||'';
-  document.getElementById('pmPaveSurface').value=proj.paveSurface||'';
-  updatePmPaveTotal();
+  // 新形式優先、旧形式後方互換
+  let _layers=proj.paveLayers?proj.paveLayers.map(l=>({...l})):[];
+  if(!_layers.length&&(proj.paveLower||proj.paveUpper||proj.paveSurface)){
+    if(proj.paveLower) _layers.push({name:'下層路盤',thickness:proj.paveLower});
+    if(proj.paveUpper) _layers.push({name:'上層路盤',thickness:proj.paveUpper});
+    if(proj.paveSurface) _layers.push({name:'表層',thickness:proj.paveSurface});
+  }
+  _projPaveLayers=_layers; _redrawProjPaveLayers();
   show('projModal');
 }
 
@@ -1926,8 +1937,15 @@ function savePavementEdit(){
 let _fillProcId=null;
 function _getProjPave(){
   const proj=getProjects().find(p=>p.id===curProjId); if(!proj) return null;
+  if(proj.paveLayers&&proj.paveLayers.length) return {type:proj.paveType||'',layers:proj.paveLayers};
+  // 旧形式後方互換
   const l=proj.paveLower||0, u=proj.paveUpper||0, s=proj.paveSurface||0;
-  return (l||u||s)?{type:proj.paveType||'',lower:l,upper:u,surface:s}:null;
+  if(!l&&!u&&!s) return null;
+  const layers=[];
+  if(l) layers.push({name:'下層路盤',thickness:l});
+  if(u) layers.push({name:'上層路盤',thickness:u});
+  if(s) layers.push({name:'表層',thickness:s});
+  return {type:proj.paveType||'',layers};
 }
 function openFillModal(procId){
   _fillProcId=procId;
@@ -1935,9 +1953,10 @@ function openFillModal(procId){
   document.getElementById('fillPitch').value='200';
   const projPave=_getProjPave();
   if(projPave){
-    const total=projPave.lower+projPave.upper+projPave.surface;
+    const total=projPave.layers.reduce((s,l)=>s+l.thickness,0);
     const typeName=projPave.type?`${projPave.type}・`:'';
-    document.getElementById('fillPaveInfo').textContent=`${typeName}下層路盤${projPave.lower}mm＋上層路盤${projPave.upper}mm＋表層${projPave.surface}mm＝計${total}mm`;
+    const layerDesc=projPave.layers.map(l=>`${l.name}${l.thickness}mm`).join('＋');
+    document.getElementById('fillPaveInfo').textContent=`${typeName}${layerDesc}＝計${total}mm`;
     document.getElementById('fillPaveInfoRow').style.display='';
     document.getElementById('fillPavePresetRow').style.display='none';
   } else {
@@ -1957,11 +1976,8 @@ function _buildFillItems(depth,pitch,paveId,projPave){
   const paveLayers=[]; // {name, thickness} 下層から順
 
   if(projPave){
-    const l=projPave.lower||0, u=projPave.upper||0, s=projPave.surface||0;
-    paveH=l+u+s;
-    if(l) paveLayers.push({name:'下層路盤',thickness:l});
-    if(u) paveLayers.push({name:'上層路盤',thickness:u});
-    if(s) paveLayers.push({name:'表層',thickness:s});
+    paveH=projPave.layers.reduce((s,l)=>s+l.thickness,0);
+    paveLayers.push(...projPave.layers);
   } else if(paveId){
     const pave=getPavementPresets().find(p=>p.id===paveId);
     if(pave){
