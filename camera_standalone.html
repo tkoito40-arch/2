@@ -711,13 +711,15 @@ function renderProject(){
     info.innerHTML=`<div class="proj-name">${g.name}</div>
       <div class="proj-sub">${totalProcs}工種・<span style="color:#43A047">${doneProcs}種類撮影済</span>・${totalPh}枚</div>`;
     info.onclick=()=>openGroup(g.id);
+    const dupBtn=document.createElement('button'); dupBtn.className='proj-del'; dupBtn.textContent='📋';
+    dupBtn.title='複製'; dupBtn.onclick=e=>{e.stopPropagation();duplicateGroup(g.id);};
     const editBtn=document.createElement('button'); editBtn.className='proj-del'; editBtn.textContent='✏';
     editBtn.onclick=e=>{e.stopPropagation();editGroup(g.id,'project');};
     const delBtn=document.createElement('button'); delBtn.className='proj-del'; delBtn.textContent='🗑';
     delBtn.onclick=e=>{e.stopPropagation();deleteGroup(g.id);};
     const arrow=document.createElement('div'); arrow.className='proj-arrow'; arrow.textContent='›';
     arrow.onclick=()=>openGroup(g.id);
-    card.appendChild(info); card.appendChild(editBtn); card.appendChild(delBtn); card.appendChild(arrow);
+    card.appendChild(info); card.appendChild(dupBtn); card.appendChild(editBtn); card.appendChild(delBtn); card.appendChild(arrow);
     list.appendChild(card);
   });
 }
@@ -1153,6 +1155,18 @@ async function shareGroupPhotos(){
   } finally {
     hideLoader();
   }
+}
+
+function duplicateGroup(groupId){
+  const projs=getProjects();
+  const proj=projs.find(p=>p.id===curProjId); if(!proj) return;
+  const g=proj.groups.find(g=>g.id===groupId); if(!g) return;
+  const newName=prompt('複製後の名前を入力してください',g.name);
+  if(newName===null) return;
+  const newGroup={id:String(uid()),name:newName||g.name,procs:g.procs.map(p=>({id:String(uid()),name:p.name}))};
+  const idx=proj.groups.findIndex(g=>g.id===groupId);
+  proj.groups.splice(idx+1,0,newGroup);
+  saveProjects(projs); renderProject(); toast('複製しました');
 }
 
 function deleteGroup(groupId){
