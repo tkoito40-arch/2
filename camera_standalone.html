@@ -927,12 +927,29 @@ function renderGroupDetail(){
     }
     top.appendChild(btn);
     if(proc.name==='床付け'){
-      const fillBtn=document.createElement('button');
-      fillBtn.className='shoot-btn';
-      fillBtn.style.cssText='background:#1B5E20;font-size:12px;padding:5px 10px;';
-      fillBtn.textContent='⚡埋戻し生成';
-      fillBtn.onclick=e=>{e.stopPropagation();openFillModal(proc.id);};
-      top.appendChild(fillBtn);
+      const procIdx=g.procs.findIndex(p=>p.id===proc.id);
+      const hasGen=procIdx>=0&&procIdx+1<g.procs.length&&g.procs[procIdx+1].generated;
+      if(hasGen){
+        const regenBtn=document.createElement('button');
+        regenBtn.className='shoot-btn';
+        regenBtn.style.cssText='background:#1B5E20;font-size:12px;padding:5px 10px;';
+        regenBtn.textContent='⚡再生成';
+        regenBtn.onclick=e=>{e.stopPropagation();resetFillGeneration(proc.id,true);openFillModal(proc.id);};
+        top.appendChild(regenBtn);
+        const rstBtn=document.createElement('button');
+        rstBtn.className='shoot-btn';
+        rstBtn.style.cssText='background:#4a1010;font-size:12px;padding:5px 10px;';
+        rstBtn.textContent='リセット';
+        rstBtn.onclick=e=>{e.stopPropagation();if(confirm('生成した工種を削除しますか？'))resetFillGeneration(proc.id);};
+        top.appendChild(rstBtn);
+      } else {
+        const fillBtn=document.createElement('button');
+        fillBtn.className='shoot-btn';
+        fillBtn.style.cssText='background:#1B5E20;font-size:12px;padding:5px 10px;';
+        fillBtn.textContent='⚡埋戻し生成';
+        fillBtn.onclick=e=>{e.stopPropagation();openFillModal(proc.id);};
+        top.appendChild(fillBtn);
+      }
     }
     row.appendChild(top);
     if(DP_PROCS.includes(proc.name)){
@@ -2172,6 +2189,21 @@ function updateFillPreview(){
     ?items.map(it=>`<div class="fill-pi${it.type==='pave'?' pave':''}">${it.type==='pave'?'🏗':'▸'} ${it.name}</div>`).join('')
     :'<span style="color:#444">生成される工種がありません</span>';
 }
+function resetFillGeneration(procId,silent=false){
+  const projs=getProjects();
+  const proj=projs.find(p=>p.id===curProjId);
+  const g=proj&&proj.groups.find(g=>g.id===curGroupId);
+  if(!proj||!g) return;
+  const idx=g.procs.findIndex(p=>p.id===procId);
+  if(idx===-1) return;
+  let end=idx+1;
+  while(end<g.procs.length&&g.procs[end].generated) end++;
+  const count=end-idx-1;
+  if(!count) return;
+  g.procs.splice(idx+1,count);
+  saveProjects(projs);
+  if(!silent){renderGroupDetail();toast(`${count}工種をリセットしました`);}
+}
 function applyFillGeneration(){
   const depth=parseInt(document.getElementById('fillDepth').value)||0;
   const pitch=parseInt(document.getElementById('fillPitch').value)||200;
@@ -2185,7 +2217,7 @@ function applyFillGeneration(){
   const g=proj&&proj.groups.find(g=>g.id===curGroupId);
   if(!proj||!g){closeFillModal();return;}
   const idx=g.procs.findIndex(p=>p.id===_fillProcId);
-  g.procs.splice(idx+1,0,...items.map(it=>({id:String(uid()),name:it.name})));
+  g.procs.splice(idx+1,0,...items.map(it=>({id:String(uid()),name:it.name,generated:true})));
   saveProjects(projs);
   closeFillModal(); renderGroupDetail(); toast(`⚡ ${items.length}工種を生成しました`);
 }
