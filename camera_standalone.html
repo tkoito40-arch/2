@@ -742,31 +742,33 @@ function renderGroupDetail(){
   document.getElementById('gdTitle').textContent=g.name;
   const body=document.getElementById('gdBody'); body.innerHTML='';
   g.procs.forEach(proc=>{
-    const ph=photos.find(p=>
+    const procPhotos=photos.filter(p=>
       String(p.procId)===String(proc.id)||
       (!p.procId&&(p.groupId?p.groupId===g.id:p.name===g.name)&&p.proc===proc.name));
-    const hasPh=!!ph;
+    const hasPh=procPhotos.length>0;
     const row=document.createElement('div'); row.className='proc-row';
     const top=document.createElement('div'); top.className='proc-row-top';
     const dot=document.createElement('div'); dot.className='proc-dot'+(hasPh?' done':'');
     const nm=document.createElement('span'); nm.className='proc-name'; nm.textContent=proc.name;
     const btn=document.createElement('button');
-    btn.className='shoot-btn'+(hasPh?' retake':'');
-    btn.textContent=hasPh?'🔄 再撮影':'📷 撮影';
+    btn.className='shoot-btn';
+    btn.textContent='📷 撮影';
     btn.onclick=()=>shootWith(proj.name,proc.name,proc.id);
     top.appendChild(dot); top.appendChild(nm);
     if(hasPh){
-      const cnt=document.createElement('span'); cnt.className='proc-cnt'; cnt.textContent='✓';
+      const cnt=document.createElement('span'); cnt.className='proc-cnt'; cnt.textContent=`${procPhotos.length}枚`;
       top.appendChild(cnt);
     }
     top.appendChild(btn);
     row.appendChild(top);
     if(hasPh){
       const thumbRow=document.createElement('div'); thumbRow.className='proc-thumbs';
-      const img=document.createElement('img'); img.className='proc-thumb';
-      img.src=ph.dataUrl; img.loading='lazy';
-      img.onclick=e=>{e.stopPropagation();showLightbox([ph],0,proc.name);};
-      thumbRow.appendChild(img);
+      procPhotos.forEach((ph,idx)=>{
+        const img=document.createElement('img'); img.className='proc-thumb';
+        img.src=ph.dataUrl; img.loading='lazy';
+        img.onclick=e=>{e.stopPropagation();showLightbox(procPhotos,idx,proc.name);};
+        thumbRow.appendChild(img);
+      });
       row.appendChild(thumbRow);
     }
     body.appendChild(row);
@@ -823,10 +825,10 @@ function _getExportData(){
   if(!proj||!g) return null;
   const allPhotos=[];
   g.procs.forEach(proc=>{
-    const ph=photos.find(p=>
+    const procPhotos=photos.filter(p=>
       String(p.procId)===String(proc.id)||
       (!p.procId&&(p.groupId?p.groupId===g.id:p.name===g.name)&&p.proc===proc.name));
-    if(ph) allPhotos.push({ph,proc:proc.name});
+    procPhotos.forEach(ph=>allPhotos.push({ph,proc:proc.name}));
   });
   return {proj,g,allPhotos};
 }
@@ -1399,10 +1401,6 @@ async function onAlbumFile(e){
   hideLoader();
 }
 async function addPhoto(dataUrl){
-  if(camProcId){
-    const idx=photos.findIndex(p=>String(p.procId)===camProcId&&p.groupId===camGroupId);
-    if(idx!==-1){await dbDel(photos[idx].id);photos.splice(idx,1);}
-  }
   const photo={id:uid(),dataUrl,proc:getProc(),procId:camProcId||undefined,name:getName(),groupId:camGroupId,date:todayStr()};
   photos.push(photo);await dbPut(photo);updateGalCount();
   autoSave(photo);toast('📷 保存しました');
