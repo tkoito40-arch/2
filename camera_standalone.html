@@ -1157,11 +1157,17 @@ async function shareGroupPhotos(){
   }
 }
 
+function _nextGroupName(name){
+  const m=name.match(/^No\.(\d+)\s+([\s\S]*)/);
+  if(m) return `No.${parseInt(m[1])+1} ${m[2]}`;
+  return `No.1 ${name}`;
+}
+
 function duplicateGroup(groupId){
   const projs=getProjects();
   const proj=projs.find(p=>p.id===curProjId); if(!proj) return;
   const g=proj.groups.find(g=>g.id===groupId); if(!g) return;
-  const newName=prompt('複製後の名前を入力してください',g.name);
+  const newName=prompt('複製後の名前を入力してください',_nextGroupName(g.name));
   if(newName===null) return;
   const newGroup={id:String(uid()),name:newName||g.name,procs:g.procs.map(p=>({id:String(uid()),name:p.name}))};
   const idx=proj.groups.findIndex(g=>g.id===groupId);
