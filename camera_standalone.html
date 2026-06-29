@@ -1185,11 +1185,12 @@ function deleteGroup(groupId){
 
 function loadPreset(idx){
   const p=getCustomPresets()[idx];
-  const newName=prompt('工事件名を入力してください',p.name);
-  if(newName===null) return;
   geState.procs=p.procs.map(name=>({id:String(uid()),name}));
   renderProcEditList();
-  document.getElementById('groupNameInp').value=newName||p.name;
+  const nameInp=document.getElementById('groupNameInp');
+  nameInp.value=p.name;
+  nameInp.focus();
+  nameInp.select();
   toast(`${p.name}の工種を読み込みました`);
 }
 
