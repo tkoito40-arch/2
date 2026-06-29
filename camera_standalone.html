@@ -634,7 +634,8 @@ let stream=null, facingMode='environment';
 let photos=[], db=null;
 let bbPos={xFrac:0.015, yFrac:null};
 let _drag=null, _dragCleanup=null;
-let camName='', camProc='', camProcId=null;
+const DP_PROCS=['分岐部配管状況','SUS配管状況','取付管φ150配管状況'];
+let camName='', camProc='', camProcId=null, camProcDp=null;
 let editingProjId=null; // null=新規, id=編集中
 let camFrom='home'; // where to go back from camera
 let camGroupId=null; // groupId stored when shooting
@@ -932,6 +933,33 @@ function renderGroupDetail(){
       top.appendChild(fillBtn);
     }
     row.appendChild(top);
+    if(DP_PROCS.includes(proc.name)){
+      const dpDiv=document.createElement('div');
+      dpDiv.style.cssText='display:flex;align-items:center;gap:6px;padding:4px 0 4px 60px;';
+      const dpLbl=document.createElement('span');
+      dpLbl.style.cssText='font-size:12px;color:#666;white-space:nowrap;';
+      dpLbl.textContent='DP=';
+      const dpInp=document.createElement('input');
+      dpInp.type='number'; dpInp.className='fill-h-inp';
+      dpInp.style.cssText='width:90px;padding:4px 8px;font-size:13px;';
+      dpInp.placeholder='未記入';
+      dpInp.value=proc.dp||'';
+      dpInp.oninput=e=>{
+        const v=parseInt(e.target.value)||0;
+        const prjs=getProjects(), prj=prjs.find(p=>p.id===curProjId);
+        if(!prj) return;
+        const grp=prj.groups.find(g=>g.id===curGroupId);
+        if(!grp) return;
+        const pr=grp.procs.find(p=>p.id===proc.id);
+        if(pr) pr.dp=v>0?v:undefined;
+        saveProjects(prjs);
+      };
+      const dpUn=document.createElement('span');
+      dpUn.style.cssText='font-size:12px;color:#666;';
+      dpUn.textContent='mm';
+      dpDiv.appendChild(dpLbl); dpDiv.appendChild(dpInp); dpDiv.appendChild(dpUn);
+      row.appendChild(dpDiv);
+    }
     if(hasPh){
       const thumbRow=document.createElement('div'); thumbRow.className='proc-thumbs';
       procPhotos.forEach((ph,idx)=>{
@@ -1469,6 +1497,9 @@ function shootWith(name, proc, procId){
   camName=name; camProc=proc; camProcId=procId?String(procId):null; camGroupId=curGroupId;
   camContractor=proj?proj.contractor||DEFAULT_CONTRACTOR:'';
   camLocation=proj?proj.location||'':'';
+  const _g=proj&&proj.groups.find(g=>g.id===curGroupId);
+  const _pr=_g&&_g.procs.find(p=>String(p.id)===String(procId));
+  camProcDp=(_pr&&_pr.dp>0)?_pr.dp:null;
   camFrom='groupDetail';
   hide('sHome'); hide('sProject'); hide('sWorkType'); hide('sGroupDetail'); hide('sGroupEdit'); hide('sGal'); show('sCam');
   updateOverlay(); initDrag(); startCam();
@@ -1712,6 +1743,8 @@ function drawBlackboard(ctx,cw,ch){
   const procY=curY;
 
   // ── 工種テキスト（1→2→3行 自動分割・縮小）──
+  const dpH=camProcDp?Math.round(bh*0.13):0;
+  const nameProcH=procH-dpH;
   ctx.fillStyle='#fff'; ctx.textAlign='center'; ctx.textBaseline='middle';
   const maxProcW=bw*0.90;
   const sepChars=['・','。','、',' '];
@@ -1739,7 +1772,7 @@ function drawBlackboard(ctx,cw,ch){
   const initFs=[0.38,0.27,0.20]; // 各行数での初期倍率
   let drawn=false;
   for(let nL=1;nL<=3&&!drawn;nL++){
-    let pFs=Math.round(procH*initFs[nL-1]);
+    let pFs=Math.round(nameProcH*initFs[nL-1]);
     ctx.font=`bold ${pFs}px Meiryo,sans-serif`;
     const lines=splitProcLines(proc,nL);
     let maxW=Math.max(...lines.map(l=>ctx.measureText(l).width));
@@ -1752,10 +1785,19 @@ function drawBlackboard(ctx,cw,ch){
     if(maxW<=maxProcW||nL===3){
       lines.forEach((line,i)=>{
         const yFrac=(i+0.5)/lines.length;
-        ctx.fillText(line,bx+bw/2,procY+procH*yFrac);
+        ctx.fillText(line,bx+bw/2,procY+nameProcH*yFrac);
       });
       drawn=true;
     }
+  }
+
+  // ── DP行（工種エリア下部）────────────────
+  if(camProcDp){
+    const dpY=procY+nameProcH;
+    let dpFs=Math.round(dpH*0.55);
+    ctx.font=`bold ${dpFs}px Meiryo,sans-serif`;
+    ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillStyle='#fff';
+    ctx.fillText(`DP=${camProcDp}mm`,bx+bw/2,dpY+dpH/2);
   }
 
   // ── 施工業者欄 ───────────────────────────
@@ -1938,7 +1980,7 @@ function savePavementEdit(){
 }
 
 // ── FILL GENERATION ───────────────────────────────────────────────
-let _fillProcId=null;
+let _fillProcId=null, _fillProcDpValues=[];
 function _getProjPave(){
   const proj=getProjects().find(p=>p.id===curProjId); if(!proj) return null;
   const l=proj.paveLower||0, u=proj.paveUpper||0, s2=proj.paveSurface2||0, s=proj.paveSurface||0;
@@ -1952,6 +1994,9 @@ function _getProjPave(){
 }
 function openFillModal(procId){
   _fillProcId=procId;
+  const _fproj=getProjects().find(p=>p.id===curProjId);
+  const _fg=_fproj&&_fproj.groups.find(g=>g.id===curGroupId);
+  _fillProcDpValues=_fg?_fg.procs.filter(p=>DP_PROCS.includes(p.name)&&p.dp>0).map(p=>p.dp):[];
   document.getElementById('fillDepth').value='';
   document.getElementById('fillPitch').value='200';
   const projPave=_getProjPave();
@@ -1973,7 +2018,7 @@ function openFillModal(procId){
   show('fillModal');
 }
 function closeFillModal(){hide('fillModal');}
-function _buildFillItems(depth,pitch,paveId,projPave){
+function _buildFillItems(depth,pitch,paveId,projPave,dpValues){
   const items=[];
   let paveH=0;
   const paveLayers=[]; // {name, thickness} 下層から順
@@ -2009,6 +2054,27 @@ function _buildFillItems(depth,pitch,paveId,projPave){
     cumH=layerTop;
   });
 
+  // 管上10cm（DP-100）処理: 既存アイテムのリネームまたは挿入
+  if(dpValues&&dpValues.length){
+    dpValues.forEach(dp=>{
+      const targetH=dp-100; if(targetH<=0) return;
+      const pipeLabel=`埋戻し（管上10cm）H=${targetH}mm`;
+      const normalLabel=`埋戻し（H=${targetH}mm）`;
+      const existIdx=items.findIndex(it=>it.type==='fill'&&it.name===normalLabel);
+      if(existIdx>=0){
+        items[existIdx].name=pipeLabel;
+      } else {
+        // H降順の正しい位置に挿入
+        let ins=items.findIndex(it=>{
+          if(it.type==='fill'){const m=it.name.match(/H=(\d+)mm/);return m&&parseInt(m[1])<targetH;}
+          return it.type==='pave';
+        });
+        if(ins===-1) ins=items.length;
+        items.splice(ins,0,{type:'fill',name:pipeLabel});
+      }
+    });
+  }
+
   return items;
 }
 function updateFillPreview(){
@@ -2018,7 +2084,7 @@ function updateFillPreview(){
   const paveId=projPave?null:document.getElementById('fillPaveSel').value;
   const el=document.getElementById('fillPreview');
   if(!depth){el.innerHTML='<span style="color:#444">深さを入力してください</span>';return;}
-  const items=_buildFillItems(depth,pitch,paveId,projPave);
+  const items=_buildFillItems(depth,pitch,paveId,projPave,_fillProcDpValues);
   el.innerHTML=items.length
     ?items.map(it=>`<div class="fill-pi${it.type==='pave'?' pave':''}">${it.type==='pave'?'🏗':'▸'} ${it.name}</div>`).join('')
     :'<span style="color:#444">生成される工種がありません</span>';
@@ -2029,7 +2095,7 @@ function applyFillGeneration(){
   const projPave=_getProjPave();
   const paveId=projPave?null:document.getElementById('fillPaveSel').value;
   if(!depth){toast('深さを入力してください');return;}
-  const items=_buildFillItems(depth,pitch,paveId,projPave);
+  const items=_buildFillItems(depth,pitch,paveId,projPave,_fillProcDpValues);
   if(!items.length){toast('生成する工種がありません');return;}
   const projs=getProjects();
   const proj=projs.find(p=>p.id===curProjId);
