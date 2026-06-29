@@ -64,10 +64,11 @@ body{display:flex;flex-direction:column;}
 .group-hdr-name{flex:1;font-size:14px;font-weight:700;color:#fff;}
 .icon-btn{background:transparent;border:none;color:#555;font-size:17px;cursor:pointer;padding:4px 8px;}
 .icon-btn:active{color:#fff;}
-.proc-row{position:relative;overflow:hidden;border-top:1px solid #1a1a1a;}
-.proc-row-inner{display:flex;flex-wrap:wrap;align-items:center;padding:9px 14px;gap:6px;will-change:transform;}
-.proc-swipe-del{position:absolute;right:0;top:0;bottom:0;width:72px;background:#c62828;display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:bold;cursor:pointer;user-select:none;-webkit-user-select:none;}
+.proc-row{border-top:1px solid #1a1a1a;}
+.proc-row-inner{display:flex;flex-wrap:wrap;align-items:center;padding:9px 14px;gap:6px;}
 .proc-row-top{display:flex;align-items:center;width:100%;gap:8px;}
+.proc-del-btn{width:32px;height:32px;background:#c62828;border:none;border-radius:6px;color:#fff;font-size:17px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;}
+.hdr-btn.del-active{background:#c62828;color:#fff;border-radius:6px;}
 .proc-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;background:#333;transition:background .2s;}
 .proc-dot.done{background:#43A047;}
 .proc-name{flex:1;font-size:14px;color:#ccc;}
@@ -368,6 +369,7 @@ body{display:flex;flex-direction:column;}
   <div class="hdr">
     <button class="hdr-btn" onclick="showProject()">← 戻る</button>
     <h1 id="gdTitle"></h1>
+    <button class="hdr-btn" id="gdDelModeBtn" onclick="toggleDelMode()">🗑 削除</button>
     <button class="hdr-btn" onclick="editGroupFromDetail()">✏</button>
   </div>
   <div class="body" id="gdBody"></div>
@@ -897,16 +899,12 @@ function showProject(){
   hide('sGroupDetail'); hide('sGroupEdit'); renderProject(); show('sProject');
 }
 
-let _openSwipeInner=null;
-function _closeSwipe(){
-  if(_openSwipeInner){
-    _openSwipeInner.style.transition='transform .15s';
-    _openSwipeInner.style.transform='';
-    _openSwipeInner=null;
-  }
+let _delMode=false;
+function toggleDelMode(){
+  _delMode=!_delMode;
+  renderGroupDetail();
 }
 function deleteProc(procId){
-  _closeSwipe();
   const projs=getProjects();
   const proj=projs.find(p=>p.id===curProjId);
   const g=proj&&proj.groups.find(g=>g.id===curGroupId);
@@ -921,6 +919,8 @@ function renderGroupDetail(){
   const g=proj&&proj.groups.find(g=>g.id===curGroupId);
   if(!proj||!g) return;
   document.getElementById('gdTitle').textContent=g.name;
+  const delBtn=document.getElementById('gdDelModeBtn');
+  if(delBtn){delBtn.textContent=_delMode?'✕ 完了':'🗑 削除'; delBtn.classList.toggle('del-active',_delMode);}
   const body=document.getElementById('gdBody'); body.innerHTML='';
   g.procs.forEach(proc=>{
     const procPhotos=photos.filter(p=>
@@ -941,6 +941,12 @@ function renderGroupDetail(){
     addBtn.textContent='＋同工種';
     addBtn.title='同じ工種をもう1枠追加';
     addBtn.onclick=e=>{e.stopPropagation();addProcSlotAfter(proc.id);};
+    if(_delMode){
+      const trashBtn=document.createElement('button'); trashBtn.className='proc-del-btn';
+      trashBtn.textContent='🗑'; trashBtn.title='削除';
+      trashBtn.onclick=e=>{e.stopPropagation();if(confirm(`「${proc.name}」を削除しますか？`))deleteProc(proc.id);};
+      top.appendChild(trashBtn);
+    }
     top.appendChild(addBtn); top.appendChild(dot); top.appendChild(nm);
     if(hasPh){
       const cnt=document.createElement('span'); cnt.className='proc-cnt'; cnt.textContent=`${procPhotos.length}枚`;
@@ -1010,36 +1016,6 @@ function renderGroupDetail(){
       });
       inner.appendChild(thumbRow);
     }
-    // スワイプ削除
-    const SW=72;
-    const swipeDel=document.createElement('div'); swipeDel.className='proc-swipe-del';
-    swipeDel.textContent='削除';
-    swipeDel.onclick=()=>{
-      _closeSwipe();
-      if(confirm(`「${proc.name}」を削除しますか？`)) deleteProc(proc.id);
-    };
-    let _sx=0,_sy=0,_sm=false;
-    inner.addEventListener('touchstart',e=>{
-      _sx=e.touches[0].clientX; _sy=e.touches[0].clientY; _sm=false;
-      inner.style.transition='none';
-      if(_openSwipeInner&&_openSwipeInner!==inner) _closeSwipe();
-    },{passive:true});
-    inner.addEventListener('touchmove',e=>{
-      const dx=e.touches[0].clientX-_sx, dy=e.touches[0].clientY-_sy;
-      if(!_sm&&Math.abs(dy)>=Math.abs(dx)) return;
-      _sm=true;
-      const base=(_openSwipeInner===inner)?-SW:0;
-      inner.style.transform=`translateX(${Math.min(0,Math.max(base+dx,-SW))}px)`;
-    },{passive:true});
-    inner.addEventListener('touchend',e=>{
-      if(!_sm) return;
-      const dx=e.changedTouches[0].clientX-_sx;
-      const base=(_openSwipeInner===inner)?-SW:0;
-      inner.style.transition='transform .15s';
-      if(base+dx<-SW/2){inner.style.transform=`translateX(-${SW}px)`;_openSwipeInner=inner;}
-      else{inner.style.transform='';if(_openSwipeInner===inner)_openSwipeInner=null;}
-    },{passive:true});
-    row.appendChild(swipeDel);
     row.appendChild(inner);
     body.appendChild(row);
   });
