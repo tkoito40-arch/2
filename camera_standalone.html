@@ -555,6 +555,7 @@ body{display:flex;flex-direction:column;}
 <div class="modal-bg hidden" id="fillModal">
   <div class="modal">
     <h2>⚡ 埋戻し自動生成</h2>
+    <div id="fillDpInputArea" style="display:none"></div>
     <div class="field">
       <label>床付け深さ H（埋戻し材から地表まで）</label>
       <div class="fill-h-row">
@@ -1997,7 +1998,51 @@ function openFillModal(procId){
   _fillProcId=procId;
   const _fproj=getProjects().find(p=>p.id===curProjId);
   const _fg=_fproj&&_fproj.groups.find(g=>g.id===curGroupId);
-  _fillProcDpValues=_fg?_fg.procs.filter(p=>DP_PROCS.includes(p.name)&&p.dp>0).map(p=>({name:p.name,dp:Math.round(p.dp*1000)})):[];
+
+  // DP入力エリアを構築
+  const dpArea=document.getElementById('fillDpInputArea');
+  dpArea.innerHTML='';
+  const dpProcs=_fg?_fg.procs.filter(p=>DP_PROCS.includes(p.name)):[];
+  const dpState={}; // procId -> dp値（m単位）
+  dpProcs.forEach(p=>{dpState[p.id]=p.dp||0;});
+
+  const _recalcDpValues=()=>{
+    _fillProcDpValues=dpProcs
+      .filter(p=>dpState[p.id]>0)
+      .map(p=>({name:p.name,dp:Math.round(dpState[p.id]*1000)}));
+  };
+  _recalcDpValues();
+
+  if(dpProcs.length){
+    dpArea.style.display='';
+    dpProcs.forEach(proc=>{
+      const field=document.createElement('div'); field.className='field';
+      const lbl=document.createElement('label'); lbl.textContent=proc.name+' DP';
+      const row=document.createElement('div'); row.className='fill-h-row';
+      const inp=document.createElement('input');
+      inp.type='number'; inp.step='0.01'; inp.className='fill-h-inp';
+      inp.placeholder='例: 1.20'; inp.value=dpState[proc.id]||'';
+      inp.oninput=e=>{
+        const v=parseFloat(e.target.value)||0;
+        dpState[proc.id]=v;
+        // localStorageにも保存
+        const prjs=getProjects(), prj=prjs.find(p=>p.id===curProjId);
+        if(prj){
+          const g=prj.groups.find(g=>g.id===curGroupId);
+          if(g){const pr=g.procs.find(p=>p.id===proc.id);if(pr)pr.dp=v>0?v:undefined;}
+          saveProjects(prjs);
+        }
+        _recalcDpValues(); updateFillPreview();
+      };
+      const un=document.createElement('span'); un.className='fill-h-unit'; un.textContent='m';
+      row.appendChild(inp); row.appendChild(un);
+      field.appendChild(lbl); field.appendChild(row);
+      dpArea.appendChild(field);
+    });
+  } else {
+    dpArea.style.display='none';
+  }
+
   document.getElementById('fillDepth').value='';
   document.getElementById('fillPitch').value='200';
   const projPave=_getProjPave();
