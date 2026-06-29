@@ -569,6 +569,7 @@ body{display:flex;flex-direction:column;}
         <span class="fill-h-unit">mm</span>
       </div>
     </div>
+    <div id="fillDpWarn" style="display:none;font-size:12px;color:#FF9800;background:#1a1200;border:1px solid #332400;border-radius:8px;padding:8px 12px;line-height:1.9;margin:0 0 8px;"></div>
     <div class="field" id="fillPaveInfoRow" style="display:none">
       <label>舗装構成（案件設定より）</label>
       <div id="fillPaveInfo" style="font-size:13px;color:#66BB6A;background:#111;padding:9px 12px;border-radius:8px;border:1px solid #1a3a1a;"></div>
@@ -942,10 +943,10 @@ function renderGroupDetail(){
       const dpInp=document.createElement('input');
       dpInp.type='number'; dpInp.className='fill-h-inp';
       dpInp.style.cssText='width:90px;padding:4px 8px;font-size:13px;';
-      dpInp.placeholder='未記入';
+      dpInp.placeholder='例: 1.20'; dpInp.step='0.01';
       dpInp.value=proc.dp||'';
       dpInp.oninput=e=>{
-        const v=parseInt(e.target.value)||0;
+        const v=parseFloat(e.target.value)||0;
         const prjs=getProjects(), prj=prjs.find(p=>p.id===curProjId);
         if(!prj) return;
         const grp=prj.groups.find(g=>g.id===curGroupId);
@@ -956,7 +957,7 @@ function renderGroupDetail(){
       };
       const dpUn=document.createElement('span');
       dpUn.style.cssText='font-size:12px;color:#666;';
-      dpUn.textContent='mm';
+      dpUn.textContent='m';
       dpDiv.appendChild(dpLbl); dpDiv.appendChild(dpInp); dpDiv.appendChild(dpUn);
       row.appendChild(dpDiv);
     }
@@ -1797,7 +1798,7 @@ function drawBlackboard(ctx,cw,ch){
     let dpFs=Math.round(dpH*0.55);
     ctx.font=`bold ${dpFs}px Meiryo,sans-serif`;
     ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillStyle='#fff';
-    ctx.fillText(`DP=${camProcDp}mm`,bx+bw/2,dpY+dpH/2);
+    ctx.fillText(`DP=${camProcDp}m`,bx+bw/2,dpY+dpH/2);
   }
 
   // ── 施工業者欄 ───────────────────────────
@@ -1996,7 +1997,7 @@ function openFillModal(procId){
   _fillProcId=procId;
   const _fproj=getProjects().find(p=>p.id===curProjId);
   const _fg=_fproj&&_fproj.groups.find(g=>g.id===curGroupId);
-  _fillProcDpValues=_fg?_fg.procs.filter(p=>DP_PROCS.includes(p.name)&&p.dp>0).map(p=>p.dp):[];
+  _fillProcDpValues=_fg?_fg.procs.filter(p=>DP_PROCS.includes(p.name)&&p.dp>0).map(p=>({name:p.name,dp:Math.round(p.dp*1000)})):[];
   document.getElementById('fillDepth').value='';
   document.getElementById('fillPitch').value='200';
   const projPave=_getProjPave();
@@ -2034,10 +2035,41 @@ function _buildFillItems(depth,pitch,paveId,projPave,dpValues){
     }
   }
 
-  // メインピッチ区間: depth-pitch から paveH まで
+  // メインピッチ区間: DP値がピッチ上にある場合は管上10cmを挿入しピッチを再開
+  const dpList=(dpValues||[]).map(x=>typeof x==='object'?x.dp:x);
+  const dpMmSet=new Set(dpList);
+  const processedDpMm=new Set();
   let h=depth-pitch;
-  while(h>paveH){items.push({type:'fill',name:`埋戻し（H=${h}mm）`});h-=pitch;}
+  while(h>paveH){
+    items.push({type:'fill',name:`埋戻し（H=${h}mm）`});
+    if(dpMmSet.has(h)){
+      processedDpMm.add(h);
+      const nextH=h-100;
+      if(nextH>paveH) items.push({type:'fill',name:`埋戻し（管上10cm）H=${nextH}mm`});
+      h=nextH-pitch;
+    } else {
+      h-=pitch;
+    }
+  }
   if(paveH>0) items.push({type:'fill',name:`埋戻し（H=${paveH}mm）`});
+
+  // DP値がピッチに合わなかった場合のフォールバック（リネームまたは挿入）
+  dpList.forEach(dp=>{
+    if(processedDpMm.has(dp)) return;
+    const targetH=dp-100; if(targetH<=0) return;
+    const pipeLabel=`埋戻し（管上10cm）H=${targetH}mm`;
+    const normalLabel=`埋戻し（H=${targetH}mm）`;
+    const existIdx=items.findIndex(it=>it.type==='fill'&&it.name===normalLabel);
+    if(existIdx>=0){items[existIdx].name=pipeLabel;}
+    else{
+      let ins=items.findIndex(it=>{
+        if(it.type==='fill'){const m=it.name.match(/H=(\d+)mm/);return m&&parseInt(m[1])<targetH;}
+        return it.type==='pave';
+      });
+      if(ins===-1) ins=items.length;
+      items.splice(ins,0,{type:'fill',name:pipeLabel});
+    }
+  });
 
   // 舗装層: 各層を100mmピッチで刻み、層名でラベル付け
   let cumH=paveH;
@@ -2054,27 +2086,6 @@ function _buildFillItems(depth,pitch,paveId,projPave,dpValues){
     cumH=layerTop;
   });
 
-  // 管上10cm（DP-100）処理: 既存アイテムのリネームまたは挿入
-  if(dpValues&&dpValues.length){
-    dpValues.forEach(dp=>{
-      const targetH=dp-100; if(targetH<=0) return;
-      const pipeLabel=`埋戻し（管上10cm）H=${targetH}mm`;
-      const normalLabel=`埋戻し（H=${targetH}mm）`;
-      const existIdx=items.findIndex(it=>it.type==='fill'&&it.name===normalLabel);
-      if(existIdx>=0){
-        items[existIdx].name=pipeLabel;
-      } else {
-        // H降順の正しい位置に挿入
-        let ins=items.findIndex(it=>{
-          if(it.type==='fill'){const m=it.name.match(/H=(\d+)mm/);return m&&parseInt(m[1])<targetH;}
-          return it.type==='pave';
-        });
-        if(ins===-1) ins=items.length;
-        items.splice(ins,0,{type:'fill',name:pipeLabel});
-      }
-    });
-  }
-
   return items;
 }
 function updateFillPreview(){
@@ -2083,6 +2094,33 @@ function updateFillPreview(){
   const projPave=_getProjPave();
   const paveId=projPave?null:document.getElementById('fillPaveSel').value;
   const el=document.getElementById('fillPreview');
+  const warnEl=document.getElementById('fillDpWarn');
+
+  // DP不一致チェック
+  if(warnEl){
+    const misaligned=_fillProcDpValues.filter(({dp})=>dp>0&&dp<depth&&(depth-dp)%pitch!==0);
+    if(misaligned.length&&depth){
+      // 各不一致DPのrem（現在のズレ）
+      const rems=misaligned.map(({dp})=>(depth-dp)%pitch);
+      // 候補: lower=depth-rem, upper=depth-rem+pitch （全DPに共通なものを探す）
+      const candidates=new Set();
+      misaligned.forEach(({dp})=>{
+        const rem=(depth-dp)%pitch;
+        [depth-rem, depth-rem+pitch].forEach(c=>{if(c>dp)candidates.add(c);});
+      });
+      const good=[...candidates].filter(c=>misaligned.every(({dp})=>(c-dp)%pitch===0))
+        .sort((a,b)=>Math.abs(a-depth)-Math.abs(b-depth));
+      const namesStr=misaligned.map(x=>`${x.name}(DP=${(x.dp/1000).toFixed(2)}m)`).join('・');
+      const sugStr=good.length
+        ?good.slice(0,2).map(d=>`<span onclick="document.getElementById('fillDepth').value=${d};updateFillPreview()" style="cursor:pointer;text-decoration:underline;color:#FFB300;font-weight:bold">${d}mm</span>`).join(' か ')
+        :'調整できる値が見つかりません';
+      warnEl.style.display='';
+      warnEl.innerHTML=`⚠ ${namesStr} がピッチと合わず工種が増えます<br>床付け H → ${sugStr} に変更すると揃います`;
+    } else {
+      warnEl.style.display='none';
+    }
+  }
+
   if(!depth){el.innerHTML='<span style="color:#444">深さを入力してください</span>';return;}
   const items=_buildFillItems(depth,pitch,paveId,projPave,_fillProcDpValues);
   el.innerHTML=items.length
