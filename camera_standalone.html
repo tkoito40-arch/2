@@ -1975,13 +1975,15 @@ function _buildFillItems(depth,pitch,paveId,projPave){
   while(h>paveH){items.push({type:'fill',name:`埋戻し（H=${h}mm）`});h-=pitch;}
   if(paveH>0) items.push({type:'fill',name:`埋戻し（H=${paveH}mm）`});
 
-  // 舗装層内: 各層を最大100mmピッチで刻む
+  // 舗装層: 各層を100mmピッチで刻み、層名でラベル付け
   let cumH=paveH;
   paveLayers.forEach(layer=>{
     const layerTop=cumH-layer.thickness;
     let lh=cumH-100;
-    while(lh>layerTop){items.push({type:'fill',name:`埋戻し（H=${lh}mm）`});lh-=100;}
-    // 層境界 (上端)
+    while(lh>layerTop){
+      items.push({type:'pave',name:`${layer.name}（H=${lh}mm）`});
+      lh-=100;
+    }
     items.push(layerTop===0
       ?{type:'pave',name:'仮復旧'}
       :{type:'pave',name:`${layer.name}（H=${layerTop}mm）`});
