@@ -83,6 +83,11 @@ body{display:flex;flex-direction:column;}
 .proc-thumb-more{width:52px;height:52px;border-radius:6px;background:#1a1a1a;
   border:1.5px solid #333;display:flex;align-items:center;justify-content:center;
   font-size:13px;font-weight:700;color:#888;cursor:pointer;flex-shrink:0;}
+.proc-add-btn{background:transparent;border:1.5px solid #333;color:#666;
+  width:28px;height:28px;border-radius:50%;font-size:20px;line-height:1;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;
+  font-family:inherit;}
+.proc-add-btn:active{color:#fff;border-color:#555;}
 
 /* ── LIGHTBOX ── */
 .lightbox{position:fixed;inset:0;z-index:500;display:flex;flex-direction:column;
@@ -754,7 +759,12 @@ function renderGroupDetail(){
     btn.className='shoot-btn';
     btn.textContent='📷 撮影';
     btn.onclick=()=>shootWith(proj.name,proc.name,proc.id);
-    top.appendChild(dot); top.appendChild(nm);
+    const addBtn=document.createElement('button');
+    addBtn.className='proc-add-btn';
+    addBtn.textContent='+';
+    addBtn.title='同じ工種をもう1枠追加';
+    addBtn.onclick=e=>{e.stopPropagation();addProcSlotAfter(proc.id);};
+    top.appendChild(addBtn); top.appendChild(dot); top.appendChild(nm);
     if(hasPh){
       const cnt=document.createElement('span'); cnt.className='proc-cnt'; cnt.textContent=`${procPhotos.length}枚`;
       top.appendChild(cnt);
@@ -816,6 +826,18 @@ function editGroup(groupId, from){
 
 function editGroupFromDetail(){
   if(curGroupId) editGroup(curGroupId,'groupDetail');
+}
+
+function addProcSlotAfter(procId){
+  const projs=getProjects();
+  const proj=projs.find(p=>p.id===curProjId);
+  const g=proj&&proj.groups.find(g=>g.id===curGroupId);
+  if(!proj||!g) return;
+  const idx=g.procs.findIndex(p=>p.id===procId);
+  if(idx===-1) return;
+  g.procs.splice(idx+1,0,{id:String(uid()),name:g.procs[idx].name});
+  saveProjects(projs);
+  renderGroupDetail();
 }
 
 // ── EXPORT ───────────────────────────────────────────────────────
