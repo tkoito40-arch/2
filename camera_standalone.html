@@ -1952,23 +1952,42 @@ function openFillModal(procId){
 }
 function closeFillModal(){hide('fillModal');}
 function _buildFillItems(depth,pitch,paveId,projPave){
-  const items=[]; let paveH=0; const layers=[];
+  const items=[];
+  let paveH=0;
+  const paveLayers=[]; // {name, thickness} 下層から順
+
   if(projPave){
     const l=projPave.lower||0, u=projPave.upper||0, s=projPave.surface||0;
     paveH=l+u+s;
-    if(l) layers.push({name:'下層路盤',bottom:paveH});
-    if(u) layers.push({name:'上層路盤',bottom:u+s});
-    if(s) layers.push({name:'表層',bottom:s});
+    if(l) paveLayers.push({name:'下層路盤',thickness:l});
+    if(u) paveLayers.push({name:'上層路盤',thickness:u});
+    if(s) paveLayers.push({name:'表層',thickness:s});
   } else if(paveId){
     const pave=getPavementPresets().find(p=>p.id===paveId);
     if(pave){
       paveH=pave.layers.reduce((s,l)=>s+l.thickness,0);
-      let cum=paveH;
-      pave.layers.forEach(l=>{layers.push({name:l.name,bottom:cum});cum-=l.thickness;});
+      paveLayers.push(...pave.layers);
     }
   }
-  for(let h=depth-pitch;h>paveH;h-=pitch) items.push({type:'fill',name:`埋戻し（H=${h}mm）`});
-  layers.forEach(l=>items.push({type:'pave',name:`${l.name}（H=${l.bottom}mm）`}));
+
+  // メインピッチ区間: depth-pitch から paveH まで
+  let h=depth-pitch;
+  while(h>paveH){items.push({type:'fill',name:`埋戻し（H=${h}mm）`});h-=pitch;}
+  if(paveH>0) items.push({type:'fill',name:`埋戻し（H=${paveH}mm）`});
+
+  // 舗装層内: 各層を最大100mmピッチで刻む
+  let cumH=paveH;
+  paveLayers.forEach(layer=>{
+    const layerTop=cumH-layer.thickness;
+    let lh=cumH-100;
+    while(lh>layerTop){items.push({type:'fill',name:`埋戻し（H=${lh}mm）`});lh-=100;}
+    // 層境界 (上端)
+    items.push(layerTop===0
+      ?{type:'pave',name:'仮復旧'}
+      :{type:'pave',name:`${layer.name}（H=${layerTop}mm）`});
+    cumH=layerTop;
+  });
+
   return items;
 }
 function updateFillPreview(){
