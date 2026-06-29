@@ -1189,8 +1189,9 @@ function loadPreset(idx){
   renderProcEditList();
   const nameInp=document.getElementById('groupNameInp');
   nameInp.value=p.name;
+  nameInp.scrollIntoView({behavior:'smooth',block:'center'});
   nameInp.focus();
-  nameInp.select();
+  nameInp.setSelectionRange(0,nameInp.value.length);
   toast(`${p.name}の工種を読み込みました`);
 }
 
