@@ -131,12 +131,17 @@ body{display:flex;flex-direction:column;}
   width:42px;height:42px;border-radius:50%;font-size:24px;cursor:pointer;z-index:2;
   display:flex;align-items:center;justify-content:center;font-family:inherit;}
 .lb-bar{position:absolute;bottom:max(env(safe-area-inset-bottom),16px);left:0;right:0;
-  display:flex;align-items:center;justify-content:center;gap:20px;z-index:2;}
+  display:flex;flex-direction:column;align-items:center;gap:10px;z-index:2;}
+.lb-nav{display:flex;align-items:center;justify-content:center;gap:20px;}
 .lb-nav-btn{background:rgba(0,0,0,.5);border:1.5px solid #555;color:#fff;
   width:46px;height:46px;border-radius:50%;font-size:26px;cursor:pointer;font-family:inherit;
   display:flex;align-items:center;justify-content:center;}
 .lb-nav-btn:disabled{opacity:.2;}
 .lb-count{color:#aaa;font-size:14px;min-width:52px;text-align:center;}
+.lb-actions{display:flex;gap:10px;}
+.lb-action-btn{background:rgba(0,0,0,.6);border:1.5px solid #555;color:#ddd;
+  padding:9px 18px;border-radius:22px;font-size:13px;cursor:pointer;font-family:inherit;}
+.lb-action-btn.danger{border-color:#c62828;color:#ef9a9a;}
 .lb-proc{position:absolute;top:max(env(safe-area-inset-top),14px);left:14px;
   background:rgba(21,101,192,.85);padding:5px 12px;border-radius:20px;
   font-size:12px;font-weight:700;color:#fff;z-index:2;max-width:65%;
@@ -473,9 +478,15 @@ body{display:flex;flex-direction:column;}
   <img class="lb-img" id="lbImg" src="">
   <button class="lb-close" onclick="closeLightbox()">✕</button>
   <div class="lb-bar">
-    <button class="lb-nav-btn" id="lbPrev" onclick="lbNav(-1)">‹</button>
-    <span class="lb-count" id="lbCount"></span>
-    <button class="lb-nav-btn" id="lbNext" onclick="lbNav(1)">›</button>
+    <div class="lb-actions">
+      <button class="lb-action-btn" onclick="lbRotate()">↺ 回転</button>
+      <button class="lb-action-btn danger" onclick="lbDelete()">🗑 削除</button>
+    </div>
+    <div class="lb-nav">
+      <button class="lb-nav-btn" id="lbPrev" onclick="lbNav(-1)">‹</button>
+      <span class="lb-count" id="lbCount"></span>
+      <button class="lb-nav-btn" id="lbNext" onclick="lbNav(1)">›</button>
+    </div>
   </div>
 </div>
 
@@ -2037,6 +2048,36 @@ function updateLightbox(){
 }
 function closeLightbox(){document.getElementById('lightbox').classList.add('hidden');}
 function lbNav(dir){lbIdx=Math.max(0,Math.min(lbPhotos.length-1,lbIdx+dir));updateLightbox();}
+function _rotateDataUrl(dataUrl){
+  return new Promise(ok=>{
+    const img=new Image(); img.onload=()=>{
+      const c=document.createElement('canvas');
+      c.width=img.height; c.height=img.width;
+      const ctx=c.getContext('2d');
+      ctx.translate(c.width/2,c.height/2); ctx.rotate(Math.PI/2);
+      ctx.drawImage(img,-img.width/2,-img.height/2);
+      ok(c.toDataURL('image/jpeg',0.92));
+    }; img.src=dataUrl;
+  });
+}
+async function lbRotate(){
+  const ph=lbPhotos[lbIdx];
+  ph.dataUrl=await _rotateDataUrl(ph.dataUrl);
+  await dbPut(ph);
+  updateLightbox();
+  renderGroupDetail();
+}
+async function lbDelete(){
+  const ph=lbPhotos[lbIdx];
+  if(!confirm('この写真を削除しますか？')) return;
+  await dbDel(ph.id);
+  photos=photos.filter(p=>p.id!==ph.id);
+  lbPhotos=lbPhotos.filter(p=>p.id!==ph.id);
+  updateGalCount();
+  if(!lbPhotos.length){closeLightbox();}
+  else{lbIdx=Math.min(lbIdx,lbPhotos.length-1);updateLightbox();}
+  renderGroupDetail();
+}
 
 // ── TEMPLATES ────────────────────────────────────────────────────
 function openTemplates(){
