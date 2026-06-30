@@ -663,6 +663,7 @@ body{display:flex;flex-direction:column;}
 
 <div class="toast" id="toast"></div>
 <input type="file" id="fileAlb" accept="image/*" onchange="onAlbumFile(event)">
+<input type="file" id="photoImportInp" accept="image/*" multiple style="display:none" onchange="onProcPhotoImport(event)">
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script>
@@ -1061,6 +1062,12 @@ function renderGroupDetail(){
     btn.className='shoot-btn';
     btn.textContent='📷 撮影';
     btn.onclick=()=>shootWith(proj.name,proc.name,proc.id);
+    const impBtn=document.createElement('button');
+    impBtn.className='shoot-btn';
+    impBtn.style.cssText='background:#1a3050;font-size:13px;padding:6px 10px;';
+    impBtn.textContent='📁 引用';
+    impBtn.title='ファイルから写真を追加';
+    impBtn.onclick=e=>{e.stopPropagation();openProcPhotoImport(proc.id,proc.name,g.id,proj.name);};
     const addBtn=document.createElement('button');
     addBtn.className='proc-add-btn';
     addBtn.textContent='＋同工種';
@@ -1083,6 +1090,7 @@ function renderGroupDetail(){
       top.appendChild(cpyBtn);
     }
     top.appendChild(btn);
+    top.appendChild(impBtn);
     if(proc.name==='床付け'){
       const procIdx=g.procs.findIndex(p=>p.id===proc.id);
       const hasGen=procIdx>=0&&procIdx+1<g.procs.length&&g.procs[procIdx+1].generated;
@@ -1818,6 +1826,25 @@ async function onAlbumFile(e){
   showLoader();
   try{const raw=await readFile(file),r=await resizeDataUrl(raw,1920);await addPhoto(await compositeBlackboard(r));toast('読み込みました');}
   catch(err){toast('エラー: '+err.message);}
+  hideLoader();
+}
+let _importProcId=null,_importProcName=null,_importGroupId=null,_importProjName=null;
+function openProcPhotoImport(procId,procName,groupId,projName){
+  _importProcId=procId;_importProcName=procName;_importGroupId=groupId;_importProjName=projName;
+  const inp=document.getElementById('photoImportInp');inp.value='';inp.click();
+}
+async function onProcPhotoImport(e){
+  const files=Array.from(e.target.files);e.target.value='';if(!files.length)return;
+  showLoader();
+  try{
+    for(const file of files){
+      const dataUrl=await resizeDataUrl(await readFile(file),1920);
+      const ph={id:String(uid()),dataUrl,proc:_importProcName,procId:_importProcId,
+        name:_importProjName,groupId:_importGroupId,date:todayStr()};
+      photos.push(ph);await dbPut(ph);
+    }
+    updateGalCount();renderGroupDetail();toast(`📁 ${files.length}枚を追加しました`);
+  }catch(err){toast('エラー: '+err.message);}
   hideLoader();
 }
 async function addPhoto(dataUrl){
