@@ -978,52 +978,35 @@ function toggleCopyAll(){
 function closeCopyModal(){
   _copyFromProcId=null; _copySelectedIds=new Set(); hide('copyPhotoModal');
 }
-let _copyDestGroupId=null;
 function openCopyDest(){
   if(_copySelectedIds.size===0) return;
-  _copyDestGroupId=null;
-  renderCopyDestList();
+  const proj=getProjects().find(p=>p.id===curProjId); if(!proj) return;
+  const srcGroup=proj.groups.find(g=>g.id===curGroupId);
+  const srcProc=srcGroup&&srcGroup.procs.find(p=>p.id===_copyFromProcId);
+  if(!srcProc) return;
+  const title=document.getElementById('copyDestTitle');
+  if(title) title.textContent=`「${srcProc.name}」のコピー先`;
+  const list=document.getElementById('copyDestList'); list.innerHTML='';
+  proj.groups.filter(g=>g.id!==curGroupId).forEach(grp=>{
+    const match=grp.procs.find(p=>p.name===srcProc.name);
+    const item=document.createElement('div'); item.className='copy-dest-proc';
+    item.style.cssText='font-size:15px;font-weight:600;padding:13px 12px;';
+    if(match){
+      item.textContent=grp.name;
+      item.onclick=()=>execPhotoCopy(match.id, grp.id, match.name, proj.name);
+    } else {
+      item.textContent=grp.name;
+      item.style.cssText+='opacity:0.35;';
+      const note=document.createElement('span');
+      note.style.cssText='font-size:11px;color:#666;font-weight:400;margin-left:8px;';
+      note.textContent='（同名の工種なし）';
+      item.appendChild(note);
+    }
+    list.appendChild(item);
+  });
   hide('copyPhotoModal'); show('copyDestModal');
 }
-function renderCopyDestList(){
-  const proj=getProjects().find(p=>p.id===curProjId); if(!proj) return;
-  const list=document.getElementById('copyDestList'); list.innerHTML='';
-  const title=document.getElementById('copyDestTitle');
-  const back=document.getElementById('copyDestBack');
-  if(_copyDestGroupId===null){
-    if(title) title.textContent='📋 工事種別を選択';
-    if(back) back.textContent='← 写真選択に戻る';
-    proj.groups.forEach(grp=>{
-      const item=document.createElement('div'); item.className='copy-dest-proc';
-      item.style.cssText='font-size:15px;font-weight:600;padding:13px 12px;';
-      item.textContent=grp.name+(grp.id===curGroupId?' （現在）':'');
-      item.onclick=()=>{_copyDestGroupId=grp.id; renderCopyDestList();};
-      list.appendChild(item);
-    });
-  } else {
-    const grp=proj.groups.find(g=>g.id===_copyDestGroupId); if(!grp) return;
-    if(title) title.textContent=grp.name+' の工種を選択';
-    if(back) back.textContent='← 工事種別に戻る';
-    const others=grp.procs.filter(p=>p.id!==_copyFromProcId);
-    if(!others.length){
-      const empty=document.createElement('div');
-      empty.style.cssText='color:#666;font-size:13px;padding:20px;text-align:center;';
-      empty.textContent='コピー先の工種がありません';
-      list.appendChild(empty);
-    } else {
-      others.forEach(proc=>{
-        const item=document.createElement('div'); item.className='copy-dest-proc';
-        item.textContent=proc.name;
-        item.onclick=()=>execPhotoCopy(proc.id, grp.id, proc.name, proj.name);
-        list.appendChild(item);
-      });
-    }
-  }
-}
-function onCopyDestBack(){
-  if(_copyDestGroupId===null){hide('copyDestModal'); show('copyPhotoModal');}
-  else{_copyDestGroupId=null; renderCopyDestList();}
-}
+function onCopyDestBack(){hide('copyDestModal'); show('copyPhotoModal');}
 async function execPhotoCopy(destProcId, destGroupId, destProcName, destProjName){
   const sel=photos.filter(p=>_copySelectedIds.has(p.id));
   const newPhotos=sel.map(p=>({
