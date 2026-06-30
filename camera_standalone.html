@@ -618,9 +618,9 @@ body{display:flex;flex-direction:column;}
 <!-- Photo Copy: コピー先選択 -->
 <div class="modal-bg hidden" id="copyDestModal">
   <div class="modal">
-    <h2>📋 コピー先の工種を選択</h2>
+    <h2 id="copyDestTitle">📋 工事種別を選択</h2>
     <div id="copyDestList" style="max-height:55dvh;overflow-y:auto;margin-bottom:8px;"></div>
-    <button class="modal-btn modal-cancel" onclick="hide('copyDestModal');show('copyPhotoModal')">← 戻る</button>
+    <button id="copyDestBack" class="modal-btn modal-cancel" onclick="onCopyDestBack()">← 戻る</button>
   </div>
 </div>
 
@@ -978,24 +978,51 @@ function toggleCopyAll(){
 function closeCopyModal(){
   _copyFromProcId=null; _copySelectedIds=new Set(); hide('copyPhotoModal');
 }
+let _copyDestGroupId=null;
 function openCopyDest(){
   if(_copySelectedIds.size===0) return;
+  _copyDestGroupId=null;
+  renderCopyDestList();
+  hide('copyPhotoModal'); show('copyDestModal');
+}
+function renderCopyDestList(){
   const proj=getProjects().find(p=>p.id===curProjId); if(!proj) return;
   const list=document.getElementById('copyDestList'); list.innerHTML='';
-  proj.groups.forEach(grp=>{
-    const groupHasOtherProcs=grp.procs.some(p=>p.id!==_copyFromProcId);
-    if(!groupHasOtherProcs) return;
-    const lbl=document.createElement('div'); lbl.className='copy-dest-group'; lbl.textContent=grp.name;
-    list.appendChild(lbl);
-    grp.procs.forEach(proc=>{
-      if(proc.id===_copyFromProcId) return;
+  const title=document.getElementById('copyDestTitle');
+  const back=document.getElementById('copyDestBack');
+  if(_copyDestGroupId===null){
+    if(title) title.textContent='📋 工事種別を選択';
+    if(back) back.textContent='← 写真選択に戻る';
+    proj.groups.forEach(grp=>{
       const item=document.createElement('div'); item.className='copy-dest-proc';
-      item.textContent=proc.name;
-      item.onclick=()=>execPhotoCopy(proc.id, grp.id, proc.name, proj.name);
+      item.style.cssText='font-size:15px;font-weight:600;padding:13px 12px;';
+      item.textContent=grp.name+(grp.id===curGroupId?' （現在）':'');
+      item.onclick=()=>{_copyDestGroupId=grp.id; renderCopyDestList();};
       list.appendChild(item);
     });
-  });
-  hide('copyPhotoModal'); show('copyDestModal');
+  } else {
+    const grp=proj.groups.find(g=>g.id===_copyDestGroupId); if(!grp) return;
+    if(title) title.textContent=grp.name+' の工種を選択';
+    if(back) back.textContent='← 工事種別に戻る';
+    const others=grp.procs.filter(p=>p.id!==_copyFromProcId);
+    if(!others.length){
+      const empty=document.createElement('div');
+      empty.style.cssText='color:#666;font-size:13px;padding:20px;text-align:center;';
+      empty.textContent='コピー先の工種がありません';
+      list.appendChild(empty);
+    } else {
+      others.forEach(proc=>{
+        const item=document.createElement('div'); item.className='copy-dest-proc';
+        item.textContent=proc.name;
+        item.onclick=()=>execPhotoCopy(proc.id, grp.id, proc.name, proj.name);
+        list.appendChild(item);
+      });
+    }
+  }
+}
+function onCopyDestBack(){
+  if(_copyDestGroupId===null){hide('copyDestModal'); show('copyPhotoModal');}
+  else{_copyDestGroupId=null; renderCopyDestList();}
 }
 async function execPhotoCopy(destProcId, destGroupId, destProcName, destProjName){
   const sel=photos.filter(p=>_copySelectedIds.has(p.id));
@@ -1057,7 +1084,7 @@ function renderGroupDetail(){
       top.appendChild(cnt);
       const cpyBtn=document.createElement('button'); cpyBtn.className='proc-add-btn';
       cpyBtn.style.cssText='font-size:12px;padding:4px 8px;background:#0d2a40;color:#42A5F5;';
-      cpyBtn.textContent='📋'; cpyBtn.title='写真を別工種へコピー';
+      cpyBtn.textContent='コピー'; cpyBtn.title='写真を別工種へコピー';
       cpyBtn.onclick=e=>{e.stopPropagation();openCopySelect(proc.id);};
       top.appendChild(cpyBtn);
     }
