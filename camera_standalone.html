@@ -38,12 +38,12 @@ body{display:flex;flex-direction:column;}
   border-radius:10px;color:#aaa;font-size:14px;font-family:inherit;cursor:pointer;}
 .sec-label{font-size:11px;font-weight:700;color:#555;letter-spacing:.5px;text-transform:uppercase;}
 .empty-msg{color:#444;font-size:14px;text-align:center;padding:24px;}
-.field label{display:block;font-size:10px;font-weight:700;color:#555;
-  letter-spacing:.5px;text-transform:uppercase;margin-bottom:5px;}
+.field label{display:block;font-size:12px;font-weight:700;color:#999;
+  letter-spacing:.5px;margin-bottom:5px;}
 .field input{width:100%;padding:11px 13px;background:#151515;border:1px solid #252525;
   border-radius:10px;color:#fff;font-size:15px;font-family:inherit;-webkit-appearance:none;}
 .field input:focus{outline:none;border-color:#1565C0;}
-.hint{font-size:11px;color:#444;margin-top:4px;}
+.hint{font-size:11px;color:#777;margin-top:4px;}
 .date-range-row{display:flex;align-items:center;gap:6px;}
 .date-range-row input{flex:1;min-width:0;}
 .date-range-sep{flex-shrink:0;color:#666;font-size:13px;}
@@ -285,12 +285,12 @@ body{display:flex;flex-direction:column;}
   padding:20px 20px max(env(safe-area-inset-bottom),20px);
   width:100%;display:flex;flex-direction:column;gap:12px;
   max-height:90dvh;overflow-y:auto;-webkit-overflow-scrolling:touch;}
-.modal h2{font-size:16px;font-weight:700;text-align:center;}
+.modal h2{font-size:17px;font-weight:700;text-align:center;color:#fff;margin-bottom:16px;}
 .modal .field input{background:#111;border-color:#333;}
 .modal-btn{width:100%;padding:13px;border:none;border-radius:10px;
   font-size:15px;font-family:inherit;cursor:pointer;}
 .modal-save{background:#1565C0;color:#fff;}
-.modal-cancel{background:#2a2a2a;color:#aaa;}
+.modal-cancel{background:#2a2a2a;color:#ccc;}
 
 /* ── TOAST / LOADER ── */
 .toast{position:fixed;bottom:calc(env(safe-area-inset-bottom,0px) + 90px);
@@ -499,25 +499,25 @@ body{display:flex;flex-direction:column;}
       <input type="text" id="pmPaveType" placeholder="例：3号復旧" style="width:100%;margin-bottom:8px;">
       <div style="display:flex;gap:8px;margin-bottom:8px;">
         <div style="flex:1">
-          <div style="font-size:10px;color:#555;margin-bottom:4px">下層路盤</div>
+          <div style="font-size:12px;color:#999;margin-bottom:4px">下層路盤</div>
           <div class="fill-h-row"><input type="number" id="pmPaveLower" class="fill-h-inp" placeholder="200" min="0" oninput="updatePmPaveTotal()"><span class="fill-h-unit">mm</span></div>
         </div>
         <div style="flex:1">
-          <div style="font-size:10px;color:#555;margin-bottom:4px">上層路盤</div>
+          <div style="font-size:12px;color:#999;margin-bottom:4px">上層路盤</div>
           <div class="fill-h-row"><input type="number" id="pmPaveUpper" class="fill-h-inp" placeholder="100" min="0" oninput="updatePmPaveTotal()"><span class="fill-h-unit">mm</span></div>
         </div>
       </div>
       <div style="display:flex;gap:8px;">
         <div style="flex:1">
-          <div style="font-size:10px;color:#555;margin-bottom:4px">表層②<span style="font-size:9px;color:#444;display:block">※2層のみ・不要は未記入</span></div>
+          <div style="font-size:12px;color:#999;margin-bottom:4px">表層②<span style="font-size:10px;color:#777;display:block">※2層のみ・不要は未記入</span></div>
           <div class="fill-h-row"><input type="number" id="pmPaveSurface2" class="fill-h-inp" placeholder="未記入" min="0" oninput="updatePmPaveTotal()"><span class="fill-h-unit">mm</span></div>
         </div>
         <div style="flex:1">
-          <div style="font-size:10px;color:#555;margin-bottom:4px">表層</div>
+          <div style="font-size:12px;color:#999;margin-bottom:4px">表層</div>
           <div class="fill-h-row"><input type="number" id="pmPaveSurface" class="fill-h-inp" placeholder="50" min="0" oninput="updatePmPaveTotal()"><span class="fill-h-unit">mm</span></div>
         </div>
       </div>
-      <div id="pmPaveTotal" style="font-size:11px;color:#555;margin-top:5px;text-align:right;"></div>
+      <div id="pmPaveTotal" style="font-size:12px;color:#999;margin-top:5px;text-align:right;"></div>
     </div>
     <button class="modal-btn modal-save" onclick="saveProjModal()">保存</button>
     <button class="modal-btn modal-cancel" onclick="closeProjModal()">キャンセル</button>
