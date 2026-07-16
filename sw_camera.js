@@ -1,6 +1,7 @@
-const CACHE = 'bbcam-v23';
+const CACHE = 'bbcam-v70';
 const ASSETS = [
   './camera_standalone.html',
+  './manager.html',
   './manifest_camera.json',
   './camera_icon.svg'
 ];
