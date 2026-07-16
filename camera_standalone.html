@@ -330,6 +330,7 @@ body{display:flex;flex-direction:column;}
   </div>
   <div class="body">
     <button class="btn-new" onclick="addProject()">＋ 新しい案件を追加</button>
+    <button class="btn-new" style="background:#1a3050;margin-top:6px" onclick="exportForPC()">💾 PCへエクスポート</button>
     <div class="sec-label">案件一覧</div>
     <div id="projList"></div>
     <div class="empty-msg hidden" id="projEmpty">案件がありません</div>
@@ -1820,6 +1821,19 @@ async function onCapFile(e){
   try{const raw=await readFile(file),r=await resizeDataUrl(raw,1920);await addPhoto(await compositeBlackboard(r));}
   catch(err){toast('エラー: '+err.message);}
   hideLoader();
+}
+async function exportForPC(){
+  toast('エクスポート中...');
+  const exportData={version:1,exportDate:todayStr(),projects:getProjects(),photos:photos};
+  const json=JSON.stringify(exportData);
+  const blob=new Blob([json],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;
+  const d=new Date();
+  a.download=`工事写真_${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}.json`;
+  a.click(); URL.revokeObjectURL(url);
+  toast('📁 エクスポートしました');
 }
 async function onAlbumFile(e){
   const file=e.target.files[0];e.target.value='';if(!file)return;

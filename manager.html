@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>工事写真帳 管理</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Hiragino Kaku Gothic ProN','Meiryo','Yu Gothic',sans-serif;background:#d8d8d8;color:#111;overflow:hidden;}
+button{font-family:inherit;cursor:pointer;}
+
+/* ── TOOLBAR ── */
+#tb{position:fixed;top:0;left:0;right:0;z-index:100;display:flex;align-items:center;gap:6px;padding:6px 10px;background:#1a1a2e;color:#fff;flex-wrap:wrap;min-height:46px;}
+.t{padding:5px 10px;border:1px solid #445;background:#2a2a4e;color:#fff;border-radius:6px;font-size:12px;white-space:nowrap;}
+.t:hover{background:#3a3a6e;}
+.t.pri{background:#1565C0;border-color:#1565C0;}
+.t.pri:hover{background:#1976D2;}
+.t.suc{background:#2E7D32;border-color:#2E7D32;}
+.t.suc:hover{background:#388E3C;}
+.tsep{width:1px;height:22px;background:#445;flex-shrink:0;}
+.tsel{padding:5px 6px;background:#2a2a4e;color:#fff;border:1px solid #445;border-radius:6px;font-size:12px;font-family:inherit;max-width:160px;}
+.tlbl{font-size:11px;color:#aaa;white-space:nowrap;}
+.tsp{flex:1;}
+#pageNav{display:flex;align-items:center;gap:4px;}
+#pageNav button{width:26px;height:26px;background:#2a2a4e;border:1px solid #445;color:#fff;border-radius:4px;font-size:14px;}
+#pageNav span{font-size:12px;min-width:54px;text-align:center;color:#ddd;}
+
+/* ── LAYOUT ── */
+#app{display:flex;height:calc(100vh - 46px);margin-top:46px;}
+
+/* ── SIDEBAR ── */
+#sb{width:160px;min-width:160px;background:#fff;border-right:1px solid #ddd;overflow-y:auto;flex-shrink:0;}
+.sb-hd{padding:8px 10px;font-size:10px;font-weight:700;background:#f5f5f5;border-bottom:1px solid #ddd;color:#666;text-transform:uppercase;letter-spacing:.5px;}
+.sb-ph{display:flex;align-items:center;gap:6px;padding:5px 7px;cursor:pointer;border-bottom:1px solid #f0f0f0;}
+.sb-ph:hover{background:#f0f4ff;}
+.sb-ph.used{opacity:.35;}
+.sb-ph img{width:46px;height:34px;object-fit:cover;border-radius:3px;flex-shrink:0;}
+.sb-ph-nm{font-size:10px;color:#444;line-height:1.3;word-break:break-all;}
+.sb-ph.drag-over{outline:2px solid #1565C0;}
+
+/* ── MAIN ── */
+#main{flex:1;overflow:auto;display:flex;flex-direction:column;align-items:center;padding:20px;gap:20px;}
+
+/* ── WELCOME ── */
+#welcome{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:60vh;gap:14px;color:#666;text-align:center;}
+#welcome h2{font-size:22px;color:#333;}
+#welcome p{font-size:13px;}
+.imp-lbl{display:inline-block;padding:12px 28px;background:#1565C0;color:#fff;border-radius:10px;font-size:15px;cursor:pointer;margin-top:8px;}
+.imp-lbl:hover{background:#1976D2;}
+
+/* ── A4 ── */
+.a4{width:210mm;height:297mm;background:#fff;box-shadow:0 4px 24px rgba(0,0,0,.25);display:flex;flex-direction:column;flex-shrink:0;}
+.ph-row{display:flex;flex:1;border-bottom:1px solid #888;}
+.ph-row:last-child{border-bottom:none;}
+
+.ph-cell{flex:0 0 61%;overflow:hidden;position:relative;border-right:1px solid #888;cursor:pointer;background:#f0f0f0;}
+.ph-cell img{width:100%;height:100%;object-fit:cover;display:block;}
+.ph-ov{position:absolute;inset:0;background:rgba(0,0,0,.42);display:flex;align-items:center;justify-content:center;gap:10px;opacity:0;transition:opacity .18s;}
+.ph-cell:hover .ph-ov{opacity:1;}
+.ph-ov button{padding:7px 12px;background:rgba(255,255,255,.92);border:none;border-radius:6px;font-size:12px;font-weight:600;color:#111;}
+.ph-empty{display:flex;align-items:center;justify-content:center;height:100%;color:#bbb;font-size:12px;flex-direction:column;gap:8px;background:#fafafa;}
+.ph-empty-ico{font-size:28px;}
+
+.cap-cell{flex:1;padding:9px 12px 6px;display:flex;flex-direction:column;overflow:hidden;}
+.cap-title{font-size:17px;font-weight:700;border-bottom:2px solid #000;padding-bottom:5px;margin-bottom:7px;outline:none;min-height:26px;cursor:text;line-height:1.3;}
+.cap-title:empty::before{content:attr(data-ph);color:#bbb;font-weight:400;}
+.cap-notes{font-size:11px;color:#333;line-height:1.6;outline:none;margin-bottom:6px;white-space:pre-wrap;cursor:text;min-height:14px;}
+.cap-notes:empty::before{content:attr(data-ph);color:#bbb;}
+.cap-lines{flex:1;display:flex;flex-direction:column;justify-content:flex-end;}
+.cap-line{border-bottom:1px dashed #c0c0c0;flex:1;max-height:20px;}
+
+/* ── EDITOR MODAL ── */
+#edMod{position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.88);display:none;flex-direction:column;}
+#edMod.open{display:flex;}
+.ed-tb{display:flex;align-items:center;gap:6px;padding:7px 12px;background:#111;color:#fff;flex-wrap:wrap;}
+.ed-tb .t{border-color:#555;background:#333;}
+.ed-tb .t.active{background:#1565C0;border-color:#1565C0;}
+.ed-tb .t:hover:not(.active){background:#444;}
+#edBody{flex:1;display:flex;overflow:hidden;}
+#edWrap{flex:1;overflow:auto;display:flex;align-items:center;justify-content:center;background:#0d0d0d;padding:16px;}
+#edCv{display:block;max-width:100%;max-height:calc(100vh - 140px);}
+#edSide{width:190px;background:#1a1a1a;color:#eee;padding:14px;display:flex;flex-direction:column;gap:10px;overflow-y:auto;flex-shrink:0;}
+.es-lbl{font-size:10px;color:#888;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px;}
+.es-sec{border-bottom:1px solid #2a2a2a;padding-bottom:10px;}
+#brushSz{width:100%;accent-color:#1565C0;}
+#brushCol{width:100%;height:34px;border:1px solid #444;border-radius:4px;cursor:pointer;background:transparent;}
+.es-btn{width:100%;padding:6px;background:#2a2a2a;border:1px solid #444;color:#eee;border-radius:6px;font-size:11px;margin-top:4px;cursor:pointer;}
+.es-btn:hover{background:#333;}
+.crop-hint{font-size:10px;color:#777;line-height:1.6;}
+
+/* ── PICK MODAL ── */
+#pkMod{position:fixed;inset:0;z-index:300;background:rgba(0,0,0,.72);display:none;align-items:center;justify-content:center;}
+#pkMod.open{display:flex;}
+.pk-box{background:#fff;border-radius:12px;padding:18px;max-width:88vw;max-height:82vh;overflow-y:auto;width:680px;}
+.pk-box h3{margin-bottom:14px;font-size:15px;}
+.pk-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px;}
+.pk-item{cursor:pointer;border:2px solid transparent;border-radius:7px;overflow:hidden;transition:border-color .12s;}
+.pk-item:hover{border-color:#1565C0;}
+.pk-item img{width:100%;aspect-ratio:4/3;object-fit:cover;display:block;}
+.pk-nm{font-size:10px;padding:3px 4px;text-align:center;color:#555;}
+.pk-can{margin-top:14px;padding:9px 18px;background:#eee;border:none;border-radius:8px;font-size:13px;font-family:inherit;cursor:pointer;}
+
+/* ── PRINT ── */
+@media print{
+  #tb,#sb,.ph-ov{display:none!important;}
+  #app{margin-top:0;height:auto;display:block;overflow:visible;}
+  #main{padding:0;overflow:visible;display:block;}
+  #welcome{display:none!important;}
+  body{overflow:visible;background:#fff;}
+  .a4{box-shadow:none;width:210mm;height:297mm;page-break-after:always;break-after:page;}
+  .a4:last-of-type{page-break-after:avoid;break-after:avoid;}
+  @page{size:A4 portrait;margin:0;}
+}
+</style>
+</head>
+<body>
+
+<!-- Toolbar -->
+<div id="tb">
+  <label class="t pri imp-tb-lbl" style="cursor:pointer;padding:5px 10px;">
+    📂 JSONを開く
+    <input type="file" id="impFile" accept=".json" style="display:none">
+  </label>
+  <div class="tsep"></div>
+  <span class="tlbl">案件:</span>
+  <select class="tsel" id="projSel" onchange="onProjChange()"><option value="">-- 選択 --</option></select>
+  <span class="tlbl">工事種別:</span>
+  <select class="tsel" id="grpSel" onchange="onGrpChange()"><option value="">-- 選択 --</option></select>
+  <div class="tsep"></div>
+  <div id="pageNav">
+    <button onclick="chPage(-1)">‹</button>
+    <span id="pgLbl">-</span>
+    <button onclick="chPage(1)">›</button>
+  </div>
+  <button class="t" onclick="addPage()" style="font-size:11px">＋ページ</button>
+  <div class="tsp"></div>
+  <button class="t suc" onclick="exportPDF()">📄 PDF出力</button>
+  <button class="t suc" onclick="exportExcel()">📊 Excel出力</button>
+</div>
+
+<!-- App -->
+<div id="app">
+  <div id="sb">
+    <div class="sb-hd">写真一覧</div>
+    <div id="sbList"></div>
+  </div>
+  <div id="main">
+    <div id="welcome">
+      <div style="font-size:52px">🗂</div>
+      <h2>工事写真帳 管理</h2>
+      <p>スマホアプリの「💾 PCへエクスポート」で作成したJSONファイルを開いてください</p>
+      <label class="imp-lbl">
+        📂 JSONファイルを開く
+        <input type="file" id="impFile2" accept=".json" style="display:none">
+      </label>
+    </div>
+  </div>
+</div>
+
+<!-- Editor Modal -->
+<div id="edMod">
+  <div class="ed-tb">
+    <button class="t active" id="tBrush" onclick="setTool('brush')">🖌 ブラシ</button>
+    <button class="t" id="tCrop" onclick="setTool('crop')">✂ トリミング</button>
+    <div class="tsep"></div>
+    <button class="t" onclick="undoEd()">↩ 元に戻す</button>
+    <button class="t" onclick="resetEd()">⟳ リセット</button>
+    <div class="tsp"></div>
+    <button class="t suc" onclick="applyEd()">✓ 適用</button>
+    <button class="t" style="background:#c62828;border-color:#c62828" onclick="closeEd()">✕ キャンセル</button>
+  </div>
+  <div id="edBody">
+    <div id="edWrap"><canvas id="edCv"></canvas></div>
+    <div id="edSide">
+      <div id="pBrush" class="es-sec">
+        <div class="es-lbl">ブラシサイズ</div>
+        <input type="range" id="brushSz" min="2" max="80" value="20">
+        <div style="text-align:center;font-size:11px;color:#888" id="brushSzLbl">20px</div>
+        <div class="es-lbl" style="margin-top:10px">ブラシ色</div>
+        <input type="color" id="brushCol" value="#ffffff">
+        <button class="es-btn" onclick="pickColor()">💉 スポイト（色取得）</button>
+        <div style="font-size:10px;color:#666;margin-top:6px;line-height:1.5">スポイト後に画像をクリックして周囲の色を取得できます</div>
+      </div>
+      <div id="pCrop" class="es-sec" style="display:none">
+        <div class="es-lbl">トリミング</div>
+        <p class="crop-hint">ドラッグで範囲を選択し「切り抜く」を押してください</p>
+        <button class="es-btn" style="background:#1565C0;color:#fff;border-color:#1565C0;margin-top:10px" onclick="applyCrop()">✂ 切り抜く</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Photo Pick Modal -->
+<div id="pkMod">
+  <div class="pk-box">
+    <h3>📷 写真を選択</h3>
+    <div class="pk-grid" id="pkGrid"></div>
+    <button class="pk-can" onclick="closePk()">キャンセル</button>
+  </div>
+</div>
+
+<script>
+// ── STATE ─────────────────────────────────────────────────────────
+let D=null;          // imported data { version, projects, photos }
+let pjId=null, gId=null;
+let pages=[];        // [{photoId,editedUrl,title,notes}[3]]
+let pgIdx=0;
+let edSlot=null;     // {pi,si}
+let pkSlot=null;     // {pi,si}
+
+// Editor
+const eCV=document.getElementById('edCv');
+const eCX=eCV.getContext('2d');
+let eTool='brush', eHist=[], eOrig=null;
+let ePaint=false, eLx=0,eLy=0;
+let eCropS=null,eCropE=null,eCropR=null;
+let eEye=false;
+
+// ── IMPORT ────────────────────────────────────────────────────────
+function bindImp(el){
+  el.addEventListener('change',async function(){
+    if(!this.files[0])return;
+    const txt=await this.files[0].text();
+    try{
+      D=JSON.parse(txt);
+      document.getElementById('welcome').style.display='none';
+      setupProjSel();
+    }catch(e){alert('読み込みエラー: '+e.message);}
+    this.value='';
+  });
+}
+bindImp(document.getElementById('impFile'));
+bindImp(document.getElementById('impFile2'));
+
+function setupProjSel(){
+  const s=document.getElementById('projSel');
+  s.innerHTML='<option value="">-- 案件を選択 --</option>';
+  (D.projects||[]).forEach(p=>{
+    const o=document.createElement('option');o.value=p.id;o.textContent=p.name;s.appendChild(o);
+  });
+  if((D.projects||[]).length===1){s.value=D.projects[0].id;onProjChange();}
+}
+
+function onProjChange(){
+  pjId=document.getElementById('projSel').value;
+  const proj=getProj();
+  const s=document.getElementById('grpSel');
+  s.innerHTML='<option value="">-- 工事種別を選択 --</option>';
+  (proj?.groups||[]).forEach(g=>{
+    const o=document.createElement('option');o.value=g.id;o.textContent=g.name;s.appendChild(o);
+  });
+  if((proj?.groups||[]).length===1){s.value=proj.groups[0].id;onGrpChange();}
+}
+
+function onGrpChange(){
+  gId=document.getElementById('grpSel').value;
+  if(!gId)return;
+  buildPages(); pgIdx=0; renderPage(); renderSB();
+}
+
+// ── DATA HELPERS ──────────────────────────────────────────────────
+const getProj=()=>(D?.projects||[]).find(p=>p.id===pjId);
+const getGrp=()=>getProj()?.groups?.find(g=>g.id===gId);
+const getGrpPhotos=()=>(D?.photos||[]).filter(p=>p.groupId===gId);
+const getPhoto=id=>(D?.photos||[]).find(p=>p.id===id);
+const slotUrl=s=>s.editedUrl||(getPhoto(s.photoId)?.dataUrl)||null;
+
+// ── PAGE BUILD ────────────────────────────────────────────────────
+function mkSlot(photoId,title,notes){return{photoId:photoId||null,editedUrl:null,title:title||'',notes:notes||''};}
+function emptySlot(){return mkSlot(null,'','');}
+
+function buildPages(){
+  const grp=getGrp();
+  const phs=getGrpPhotos();
+  const slots=[];
+  if(grp?.procs?.length){
+    grp.procs.forEach(proc=>{
+      const pp=phs.filter(p=>String(p.procId)===String(proc.id)||(!p.procId&&p.proc===proc.name));
+      if(pp.length) pp.forEach(ph=>slots.push(mkSlot(ph.id,proc.name,ph.date||'')));
+      else slots.push(mkSlot(null,proc.name,''));
+    });
+  } else {
+    phs.forEach(ph=>slots.push(mkSlot(ph.id,ph.proc||'',ph.date||'')));
+  }
+  pages=[];
+  for(let i=0;i<Math.max(slots.length,3);i+=3){
+    const pg=[slots[i]||emptySlot(),slots[i+1]||emptySlot(),slots[i+2]||emptySlot()];
+    pages.push(pg);
+  }
+}
+
+function addPage(){
+  pages.push([emptySlot(),emptySlot(),emptySlot()]);
+  pgIdx=pages.length-1;
+  renderPage(); updPgLbl();
+}
+
+// ── RENDER ────────────────────────────────────────────────────────
+function renderPage(){
+  const main=document.getElementById('main');
+  main.querySelectorAll('.a4').forEach(el=>el.remove());
+  if(!pages.length)return;
+  main.appendChild(buildA4(pages[pgIdx],pgIdx,true));
+  updPgLbl();
+}
+
+function buildA4(page,pi,interactive){
+  const a4=document.createElement('div'); a4.className='a4';
+  page.forEach((slot,si)=>{
+    const row=document.createElement('div'); row.className='ph-row';
+    // Photo cell
+    const pc=document.createElement('div'); pc.className='ph-cell';
+    const url=slotUrl(slot);
+    if(url){
+      const img=document.createElement('img'); img.src=url; pc.appendChild(img);
+      if(interactive){
+        const ov=document.createElement('div'); ov.className='ph-ov';
+        const eb=document.createElement('button'); eb.textContent='✏ 編集';
+        eb.onclick=e=>{e.stopPropagation();openEd(pi,si);};
+        const rb=document.createElement('button'); rb.textContent='🔄 差し替え';
+        rb.onclick=e=>{e.stopPropagation();openPk(pi,si);};
+        ov.appendChild(eb); ov.appendChild(rb); pc.appendChild(ov);
+      }
+    } else {
+      const em=document.createElement('div'); em.className='ph-empty';
+      em.innerHTML='<div class="ph-empty-ico">📷</div><div style="font-size:11px">クリックして選択</div>';
+      if(interactive) em.onclick=()=>openPk(pi,si);
+      pc.appendChild(em);
+    }
+    // Caption cell
+    const cap=document.createElement('div'); cap.className='cap-cell';
+    const ttl=document.createElement('div'); ttl.className='cap-title';
+    ttl.dataset.ph='工種名'; ttl.contentEditable=interactive?'true':'false';
+    ttl.textContent=slot.title;
+    ttl.oninput=()=>{slot.title=ttl.textContent;};
+    const nts=document.createElement('div'); nts.className='cap-notes';
+    nts.dataset.ph='メモ'; nts.contentEditable=interactive?'true':'false';
+    nts.textContent=slot.notes;
+    nts.oninput=()=>{slot.notes=nts.textContent;};
+    const lns=document.createElement('div'); lns.className='cap-lines';
+    for(let i=0;i<10;i++){const l=document.createElement('div');l.className='cap-line';lns.appendChild(l);}
+    cap.appendChild(ttl); cap.appendChild(nts); cap.appendChild(lns);
+    row.appendChild(pc); row.appendChild(cap); a4.appendChild(row);
+  });
+  return a4;
+}
+
+function updPgLbl(){
+  document.getElementById('pgLbl').textContent=pages.length?`${pgIdx+1} / ${pages.length}`:'-';
+}
+
+function renderSB(){
+  const list=document.getElementById('sbList'); list.innerHTML='';
+  const phs=getGrpPhotos();
+  const used=new Set(pages.flatMap(p=>p.map(s=>s.photoId)).filter(Boolean));
+  phs.forEach(ph=>{
+    const item=document.createElement('div');
+    item.className='sb-ph'+(used.has(ph.id)?' used':'');
+    const img=document.createElement('img'); img.src=ph.dataUrl;
+    const nm=document.createElement('div'); nm.className='sb-ph-nm'; nm.textContent=ph.proc||'写真';
+    item.appendChild(img); item.appendChild(nm);
+    item.title=(ph.proc||'')+'\n'+(ph.date||'');
+    list.appendChild(item);
+  });
+}
+
+function chPage(d){
+  const n=pgIdx+d;
+  if(n<0||n>=pages.length)return;
+  pgIdx=n; renderPage();
+}
+
+// ── PHOTO PICKER ──────────────────────────────────────────────────
+function openPk(pi,si){
+  pkSlot={pi,si};
+  const grid=document.getElementById('pkGrid'); grid.innerHTML='';
+  const phs=getGrpPhotos();
+  phs.forEach(ph=>{
+    const item=document.createElement('div'); item.className='pk-item';
+    const img=document.createElement('img'); img.src=ph.dataUrl;
+    const nm=document.createElement('div'); nm.className='pk-nm'; nm.textContent=ph.proc||'写真';
+    item.appendChild(img); item.appendChild(nm);
+    item.onclick=()=>selPhoto(ph.id,ph.proc,ph.date);
+    grid.appendChild(item);
+  });
+  document.getElementById('pkMod').classList.add('open');
+}
+
+function selPhoto(photoId,proc,date){
+  if(!pkSlot)return;
+  const slot=pages[pkSlot.pi][pkSlot.si];
+  slot.photoId=photoId; slot.editedUrl=null;
+  if(!slot.title)slot.title=proc||'';
+  if(!slot.notes)slot.notes=date||'';
+  closePk(); renderPage(); renderSB();
+}
+
+function closePk(){pkSlot=null;document.getElementById('pkMod').classList.remove('open');}
+
+// ── EDITOR ────────────────────────────────────────────────────────
+function openEd(pi,si){
+  const slot=pages[pi][si];
+  const url=slotUrl(slot); if(!url)return;
+  edSlot={pi,si}; eHist=[]; eOrig=url; eCropS=eCropE=eCropR=null; eEye=false;
+  const img=new Image(); img.onload=()=>{
+    eCV.width=img.width; eCV.height=img.height;
+    eCX.drawImage(img,0,0); saveH();
+    document.getElementById('edMod').classList.add('open');
+  }; img.src=url;
+}
+
+function closeEd(){document.getElementById('edMod').classList.remove('open');edSlot=null;ePaint=false;}
+
+function applyEd(){
+  if(!edSlot)return;
+  const slot=pages[edSlot.pi][edSlot.si];
+  slot.editedUrl=eCV.toDataURL('image/jpeg',.92);
+  closeEd(); renderPage(); renderSB();
+}
+
+function saveH(){
+  eHist.push(eCX.getImageData(0,0,eCV.width,eCV.height));
+  if(eHist.length>25)eHist.shift();
+}
+
+function undoEd(){
+  if(eHist.length<=1)return;
+  eHist.pop(); eCX.putImageData(eHist[eHist.length-1],0,0);
+}
+
+function resetEd(){
+  if(!eOrig)return;
+  const img=new Image(); img.onload=()=>{
+    eCV.width=img.width; eCV.height=img.height;
+    eCX.drawImage(img,0,0); eHist=[]; saveH();
+  }; img.src=eOrig;
+}
+
+function setTool(t){
+  eTool=t;
+  document.getElementById('tBrush').classList.toggle('active',t==='brush');
+  document.getElementById('tCrop').classList.toggle('active',t==='crop');
+  document.getElementById('pBrush').style.display=t==='brush'?'block':'none';
+  document.getElementById('pCrop').style.display=t==='crop'?'block':'none';
+  eCropS=eCropE=eCropR=null;
+  if(eHist.length) eCX.putImageData(eHist[eHist.length-1],0,0);
+}
+
+function cvScale(){
+  const r=eCV.getBoundingClientRect();
+  return{x:eCV.width/r.width,y:eCV.height/r.height};
+}
+function cvPos(e){
+  const r=eCV.getBoundingClientRect(),sc=cvScale();
+  return{x:(e.clientX-r.left)*sc.x,y:(e.clientY-r.top)*sc.y};
+}
+
+eCV.addEventListener('mousedown',e=>{
+  const p=cvPos(e);
+  if(eEye){
+    const px=eCX.getImageData(Math.round(p.x),Math.round(p.y),1,1).data;
+    document.getElementById('brushCol').value='#'+[px[0],px[1],px[2]].map(v=>v.toString(16).padStart(2,'0')).join('');
+    eEye=false; eCV.style.cursor='crosshair'; return;
+  }
+  if(eTool==='brush'){ePaint=true;eLx=p.x;eLy=p.y;brush(p.x,p.y);}
+  else if(eTool==='crop'){eCropS=p;eCropE=null;}
+});
+
+eCV.addEventListener('mousemove',e=>{
+  const p=cvPos(e);
+  if(eTool==='brush'&&ePaint){brushLine(eLx,eLy,p.x,p.y);eLx=p.x;eLy=p.y;}
+  else if(eTool==='crop'&&eCropS){eCropE=p;drawCropOv();}
+});
+
+eCV.addEventListener('mouseup',e=>{
+  if(eTool==='brush'&&ePaint){ePaint=false;saveH();}
+  else if(eTool==='crop'&&eCropS){
+    const p=cvPos(e);eCropE=p;
+    eCropR={x:Math.min(eCropS.x,p.x),y:Math.min(eCropS.y,p.y),
+      w:Math.abs(p.x-eCropS.x),h:Math.abs(p.y-eCropS.y)};
+  }
+});
+
+eCV.addEventListener('mouseleave',()=>{if(ePaint){ePaint=false;saveH();}});
+
+// Touch support
+function toMouse(t){return{clientX:t.touches[0].clientX,clientY:t.touches[0].clientY};}
+eCV.addEventListener('touchstart',e=>{e.preventDefault();eCV.dispatchEvent(new MouseEvent('mousedown',toMouse(e)));},{passive:false});
+eCV.addEventListener('touchmove',e=>{e.preventDefault();eCV.dispatchEvent(new MouseEvent('mousemove',toMouse(e)));},{passive:false});
+eCV.addEventListener('touchend',e=>{e.preventDefault();const t=e.changedTouches[0];eCV.dispatchEvent(new MouseEvent('mouseup',{clientX:t.clientX,clientY:t.clientY}));},{passive:false});
+
+function brush(x,y){
+  const sz=parseInt(document.getElementById('brushSz').value);
+  const col=document.getElementById('brushCol').value;
+  eCX.beginPath();eCX.arc(x,y,sz/2,0,Math.PI*2);eCX.fillStyle=col;eCX.fill();
+}
+function brushLine(x1,y1,x2,y2){
+  const sz=parseInt(document.getElementById('brushSz').value);
+  const col=document.getElementById('brushCol').value;
+  eCX.beginPath();eCX.moveTo(x1,y1);eCX.lineTo(x2,y2);
+  eCX.strokeStyle=col;eCX.lineWidth=sz;eCX.lineCap='round';eCX.lineJoin='round';eCX.stroke();
+}
+function drawCropOv(){
+  if(!eCropS||!eCropE||!eHist.length)return;
+  eCX.putImageData(eHist[eHist.length-1],0,0);
+  const x=Math.min(eCropS.x,eCropE.x),y=Math.min(eCropS.y,eCropE.y);
+  const w=Math.abs(eCropE.x-eCropS.x),h=Math.abs(eCropE.y-eCropS.y);
+  eCX.fillStyle='rgba(0,0,0,.5)';eCX.fillRect(0,0,eCV.width,eCV.height);
+  eCX.clearRect(x,y,w,h);
+  eCX.strokeStyle='#fff';eCX.lineWidth=2;eCX.strokeRect(x,y,w,h);
+}
+function applyCrop(){
+  if(!eCropR||eCropR.w<2||eCropR.h<2){alert('範囲を選択してください');return;}
+  const{x,y,w,h}=eCropR;
+  const id=eCX.getImageData(x,y,w,h);
+  eCV.width=w;eCV.height=h;eCX.putImageData(id,0,0);
+  eCropS=eCropE=eCropR=null;saveH();
+}
+function pickColor(){
+  eEye=true;eCV.style.cursor='crosshair';
+}
+
+document.getElementById('brushSz').oninput=function(){
+  document.getElementById('brushSzLbl').textContent=this.value+'px';
+};
+
+// ── EXPORT: PDF ───────────────────────────────────────────────────
+function exportPDF(){
+  if(!pages.length){alert('データがありません');return;}
+  const main=document.getElementById('main');
+  main.querySelectorAll('.a4').forEach(el=>el.remove());
+  pages.forEach(pg=>main.appendChild(buildA4(pg,-1,false)));
+  window.print();
+  renderPage();
+}
+
+// ── EXPORT: Excel ─────────────────────────────────────────────────
+function exportExcel(){
+  if(!pages.length){alert('データがありません');return;}
+  const proj=getProj(),grp=getGrp();
+  let rows='';
+  // Header
+  rows+=`<tr><td colspan="2" style="font-size:16pt;font-weight:bold;padding:6pt;text-align:center;border:1px solid #999">工 事 写 真 帳</td></tr>`;
+  rows+=`<tr><td colspan="2" style="font-size:10pt;padding:4pt 6pt;border:1px solid #999">
+    案件名: ${esc(proj?.name||'')}　／　工事種別: ${esc(grp?.name||'')}　／　施工業者: ${esc(proj?.contractor||'')}
+  </td></tr>`;
+  pages.forEach((page,pi)=>{
+    page.forEach((slot,si)=>{
+      const url=slotUrl(slot);
+      rows+=`<tr>
+        <td style="width:360pt;height:190pt;vertical-align:top;padding:0;border:1px solid #aaa">
+          ${url?`<img src="${url}" style="width:360pt;height:190pt;object-fit:cover;display:block">`:''}
+        </td>
+        <td style="width:180pt;vertical-align:top;padding:8pt;font-size:11pt;border:1px solid #aaa">
+          <b style="font-size:14pt">${esc(slot.title)}</b><hr style="margin:4pt 0">
+          <span style="font-size:10pt;color:#333">${esc(slot.notes).replace(/\n/g,'<br>')}</span>
+        </td>
+      </tr>`;
+    });
+  });
+  const html=`<html xmlns:o="urn:schemas-microsoft-com:office:office"
+    xmlns:x="urn:schemas-microsoft-com:office:excel"
+    xmlns="http://www.w3.org/TR/REC-html40">
+    <head><meta charset="utf-8">
+    <!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet>
+      <x:Name>写真帳</x:Name>
+      <x:WorksheetOptions><x:Print><x:ValidPrinterInfo/><x:PaperSizeIndex>9</x:PaperSizeIndex>
+      </x:Print></x:WorksheetOptions>
+    </x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]-->
+    </head>
+    <body><table border="0" style="border-collapse:collapse">${rows}</table></body></html>`;
+  const blob=new Blob(['﻿'+html],{type:'application/vnd.ms-excel;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;
+  const nm=((proj?.name||'写真帳')+'_'+(grp?.name||'')).replace(/[\/\\:*?"<>|]/g,'_');
+  a.download=nm+'_写真帳.xls';a.click();URL.revokeObjectURL(url);
+}
+
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+</script>
+</body>
+</html>
